@@ -1,0 +1,50 @@
+name: chart
+description: "AI-powered financial chart analysis tool for Crypto, Forex, and Stocks."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+
+  # Networking
+  dio: ^5.7.0
+
+  # Image
+  image_picker: ^1.1.2
+  screenshot: ^3.0.0
+
+  # Storage
+  shared_preferences: ^2.3.3
+  path_provider: ^2.1.4
+  path: ^1.9.0
+
+  # Charts — latest published version is 2.1.0
+  candlesticks: ^2.1.0
+
+  # UI
+  google_fonts: ^6.2.1
+  shimmer: ^3.0.0
+  flutter_markdown: ^0.7.4
+  share_plus: ^10.1.2
+  package_info_plus: ^8.1.2
+  permission_handler: ^11.3.1
+
+  # Env / config
+  flutter_dotenv: ^5.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
