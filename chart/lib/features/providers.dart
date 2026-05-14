@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/chart_analysis.dart';
@@ -10,38 +10,38 @@ import '../services/openai_service.dart';
 
 // ─── Theme Provider ───────────────────────────────────────────────────────────
 
-final themeModeProvider =
-    StateNotifierProvider<ThemeModeNotifier, bool>((ref) {
-  return ThemeModeNotifier();
-});
-
-class ThemeModeNotifier extends StateNotifier<bool> {
+class ThemeProvider extends ChangeNotifier {
   static const _kDarkModeKey = 'dark_mode';
 
-  ThemeModeNotifier() : super(true) {
+  bool _isDark = true;
+  bool get isDark => _isDark;
+
+  ThemeProvider() {
     _load();
   }
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    // Default to dark mode when no preference is saved.
     final saved = prefs.getBool(_kDarkModeKey);
-    if (saved != null && saved != state) {
-      state = saved;
+    if (saved != null && saved != _isDark) {
+      _isDark = saved;
+      notifyListeners();
     }
   }
 
   Future<void> toggle() async {
-    state = !state;
+    _isDark = !_isDark;
+    notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kDarkModeKey, state);
+    await prefs.setBool(_kDarkModeKey, _isDark);
   }
 
   Future<void> setDark(bool isDark) async {
-    if (state == isDark) return;
-    state = isDark;
+    if (_isDark == isDark) return;
+    _isDark = isDark;
+    notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kDarkModeKey, state);
+    await prefs.setBool(_kDarkModeKey, _isDark);
   }
 }
 
@@ -69,100 +69,174 @@ class AnalysisError extends AnalysisState {
   const AnalysisError(this.message);
 }
 
-final analysisProvider =
-    StateNotifierProvider<AnalysisNotifier, AnalysisState>((ref) {
-  return AnalysisNotifier(ref);
-});
+class AnalysisProvider extends ChangeNotifier {
+  AnalysisState _state = const AnalysisIdle();
+  AnalysisState get state => _state;
 
-class AnalysisNotifier extends StateNotifier<AnalysisState> {
-  final Ref _ref;
-  AnalysisNotifier(this._ref) : super(const AnalysisIdle());
+  VoidCallback? onAnalysisComplete;
 
   Future<void> analyze(File imageFile) async {
-    state = const AnalysisLoading();
+    _state = const AnalysisLoading();
+    notifyListeners();
     try {
       final result = await OpenAiService.instance.analyzeChart(imageFile);
       result.chartImagePath = imageFile.path;
       await HistoryRepository.instance.add(result);
-      _ref.invalidate(historyProvider);
-      state = AnalysisSuccess(result);
+      onAnalysisComplete?.call();
+      _state = AnalysisSuccess(result);
     } catch (e) {
-      state = AnalysisError(OpenAiService.friendlyError(e));
+      _state = AnalysisError(OpenAiService.friendlyError(e));
     }
+    notifyListeners();
   }
 
-  void reset() => state = const AnalysisIdle();
+  void reset() {
+    _state = const AnalysisIdle();
+    notifyListeners();
+  }
 }
 
 // ─── History Provider ─────────────────────────────────────────────────────────
 
-final historyProvider = FutureProvider<List<ChartAnalysis>>((ref) async {
-  return HistoryRepository.instance.loadAll();
-});
+enum LoadState { idle, loading, loaded, error }
 
-// ─── Live Chart Providers ─────────────────────────────────────────────────────
+class HistoryProvider extends ChangeNotifier {
+  LoadState _loadState = LoadState.idle;
+  List<ChartAnalysis> _items = [];
+  String _error = '';
 
-final selectedPairProvider = StateProvider<String>((ref) => 'BTCUSDT');
-final selectedIntervalProvider = StateProvider<String>((ref) => '1h');
+  LoadState get loadState => _loadState;
+  List<ChartAnalysis> get items => _items;
+  String get error => _error;
 
-final favoritePairsProvider =
-    StateNotifierProvider<FavoritePairsNotifier, List<String>>((ref) {
-  return FavoritePairsNotifier();
-});
-
-class FavoritePairsNotifier extends StateNotifier<List<String>> {
-  FavoritePairsNotifier() : super([]) {
-    _load();
-  }
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    state = prefs.getStringList('favorite_pairs') ?? [];
-  }
-
-  Future<void> toggle(String pair) async {
-    if (state.contains(pair)) {
-      state = state.where((p) => p != pair).toList();
-    } else {
-      state = [...state, pair];
+  Future<void> load() async {
+    _loadState = LoadState.loading;
+    notifyListeners();
+    try {
+      _items = await HistoryRepository.instance.loadAll();
+      _loadState = LoadState.loaded;
+    } catch (e) {
+      _error = e.toString();
+      _loadState = LoadState.error;
     }
+    notifyListeners();
+  }
+
+  Future<void> clearAll() async {
+    await HistoryRepository.instance.clearAll();
+    await load();
+  }
+
+  Future<void> delete(String id) async {
+    await HistoryRepository.instance.delete(id);
+    _items = _items.where((a) => a.id != id).toList();
+    notifyListeners();
+  }
+}
+
+// ─── Live Chart Provider ──────────────────────────────────────────────────────
+
+class LiveChartProvider extends ChangeNotifier {
+  static const _kFavoritesKey = 'favorite_pairs';
+
+  String _selectedPair = 'BTCUSDT';
+  String _selectedInterval = '1h';
+  List<String> _favoritePairs = [];
+  List<String> _recentPairs = [];
+
+  LoadState _candleState = LoadState.idle;
+  List<CandleData> _candles = [];
+  String _candleError = '';
+
+  LoadState _tickerState = LoadState.idle;
+  Map<String, dynamic> _ticker = {};
+  String _tickerError = '';
+
+  String get selectedPair => _selectedPair;
+  String get selectedInterval => _selectedInterval;
+  List<String> get favoritePairs => _favoritePairs;
+  List<String> get recentPairs => _recentPairs;
+
+  LoadState get candleState => _candleState;
+  List<CandleData> get candles => _candles;
+  String get candleError => _candleError;
+
+  LoadState get tickerState => _tickerState;
+  Map<String, dynamic> get ticker => _ticker;
+  String get tickerError => _tickerError;
+
+  LiveChartProvider() {
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('favorite_pairs', state);
+    _favoritePairs = prefs.getStringList(_kFavoritesKey) ?? [];
+    notifyListeners();
   }
 
-  bool isFavorite(String pair) => state.contains(pair);
-}
+  void selectPair(String pair) {
+    _selectedPair = pair;
+    _addRecent(pair);
+    notifyListeners();
+    fetchData();
+  }
 
-final recentPairsProvider =
-    StateNotifierProvider<RecentPairsNotifier, List<String>>((ref) {
-  return RecentPairsNotifier();
-});
+  void selectInterval(String interval) {
+    _selectedInterval = interval;
+    notifyListeners();
+    fetchData();
+  }
 
-class RecentPairsNotifier extends StateNotifier<List<String>> {
-  RecentPairsNotifier() : super([]);
+  void _addRecent(String pair) {
+    _recentPairs =
+        [pair, ..._recentPairs.where((p) => p != pair)].take(10).toList();
+  }
 
-  void add(String pair) {
-    final updated =
-        [pair, ...state.where((p) => p != pair)].take(10).toList();
-    state = updated;
+  Future<void> toggleFavorite(String pair) async {
+    if (_favoritePairs.contains(pair)) {
+      _favoritePairs = _favoritePairs.where((p) => p != pair).toList();
+    } else {
+      _favoritePairs = [..._favoritePairs, pair];
+    }
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kFavoritesKey, _favoritePairs);
+  }
+
+  bool isFavorite(String pair) => _favoritePairs.contains(pair);
+
+  Future<void> fetchData() async {
+    await Future.wait([_fetchCandles(), _fetchTicker()]);
+  }
+
+  Future<void> _fetchCandles() async {
+    _candleState = LoadState.loading;
+    notifyListeners();
+    try {
+      _candles = await BinanceService.instance.getKlines(
+        symbol: _selectedPair,
+        interval: _selectedInterval,
+        limit: 200,
+      );
+      _candleState = LoadState.loaded;
+    } catch (e) {
+      _candleError = e.toString();
+      _candleState = LoadState.error;
+    }
+    notifyListeners();
+  }
+
+  Future<void> _fetchTicker() async {
+    _tickerState = LoadState.loading;
+    notifyListeners();
+    try {
+      _ticker = await BinanceService.instance.getTicker(_selectedPair);
+      _tickerState = LoadState.loaded;
+    } catch (e) {
+      _tickerError = e.toString();
+      _tickerState = LoadState.error;
+    }
+    notifyListeners();
   }
 }
-
-/// Fetches candles for current pair + interval.
-final candleDataProvider =
-    FutureProvider.autoDispose<List<CandleData>>((ref) async {
-  final pair = ref.watch(selectedPairProvider);
-  final interval = ref.watch(selectedIntervalProvider);
-  return BinanceService.instance.getKlines(
-    symbol: pair,
-    interval: interval,
-    limit: 200,
-  );
-});
-
-/// 24 h ticker for the current pair.
-final tickerProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
-  final pair = ref.watch(selectedPairProvider);
-  return BinanceService.instance.getTicker(pair);
-});

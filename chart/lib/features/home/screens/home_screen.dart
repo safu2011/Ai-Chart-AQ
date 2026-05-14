@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
@@ -10,16 +10,17 @@ import '../../../widgets/shared_widgets.dart';
 import '../../analysis/screens/image_preview_screen.dart';
 import '../../charts/screens/live_chart_screen.dart';
 import '../../history/screens/history_screen.dart';
+import '../../providers.dart';
 import '../../settings/screens/settings_screen.dart';
 
-class HomeScreen extends ConsumerStatefulWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen>
+class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animCtrl;
   late Animation<double> _fadeAnim;
@@ -30,8 +31,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.initState();
     _animCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 700));
-    _fadeAnim =
-        CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 0.08),
       end: Offset.zero,
@@ -157,8 +157,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _buildWelcomeCard(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final gold = AppTheme.gold(context);
-    final goldSoft =
-        isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft;
+    final goldSoft = isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft;
     final borderGlow =
         isDark ? AppColorsDark.borderGlow : AppColorsLight.borderGlow;
 
@@ -197,8 +196,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.auto_awesome_rounded,
-                        color: gold, size: 11),
+                    Icon(Icons.auto_awesome_rounded, color: gold, size: 11),
                     const SizedBox(width: 4),
                     Text(
                       'GPT-4o Vision',
@@ -239,8 +237,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               _StatChip(label: 'Patterns', icon: Icons.pattern),
               const SizedBox(width: 8),
               _StatChip(
-                  label: 'Levels',
-                  icon: Icons.horizontal_rule_rounded),
+                  label: 'Levels', icon: Icons.horizontal_rule_rounded),
               const SizedBox(width: 8),
               _StatChip(label: 'Signals', icon: Icons.bolt_rounded),
             ],
@@ -297,9 +294,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 const SizedBox(height: 4),
                 Text(
                   'PNG, JPG supported',
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: AppTheme.textMuted(context)),
+                  style:
+                      TextStyle(fontSize: 11, color: AppTheme.textMuted(context)),
                 ),
               ],
             ),
@@ -331,8 +327,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 label: 'Live Crypto\nCharts',
                 color: AppTheme.emerald(context),
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                      builder: (_) => const LiveChartScreen()),
+                  MaterialPageRoute(builder: (_) => const LiveChartScreen()),
                 ),
               ),
             ),
@@ -343,8 +338,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 label: 'Analysis\nHistory',
                 color: AppTheme.blue(context),
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                      builder: (_) => const HistoryScreen()),
+                  MaterialPageRoute(builder: (_) => const HistoryScreen()),
                 ),
               ),
             ),
@@ -363,8 +357,7 @@ class _StatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: AppTheme.neutral(context),
         borderRadius: BorderRadius.circular(Radii.full),

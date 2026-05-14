@@ -3,8 +3,9 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
@@ -23,16 +24,16 @@ class _DrawPoint {
       {this.isLineStart = false});
 }
 
-class ImagePreviewScreen extends ConsumerStatefulWidget {
+class ImagePreviewScreen extends StatefulWidget {
   final File imageFile;
   const ImagePreviewScreen({super.key, required this.imageFile});
 
   @override
-  ConsumerState<ImagePreviewScreen> createState() =>
+  State<ImagePreviewScreen> createState() =>
       _ImagePreviewScreenState();
 }
 
-class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
+class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
   final GlobalKey _repaintKey = GlobalKey();
 
   _DrawTool _selectedTool = _DrawTool.none;
@@ -76,7 +77,7 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
       fileToAnalyze = widget.imageFile;
     }
 
-    ref.read(analysisProvider.notifier).reset();
+    context.read<AnalysisProvider>().reset();
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) =>

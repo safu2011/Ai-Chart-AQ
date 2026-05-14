@@ -1,78 +1,89 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/chart_analysis.dart';
-import '../../../services/history_repository.dart';
 import '../../../widgets/shared_widgets.dart';
 import '../../providers.dart';
 
-class HistoryScreen extends ConsumerWidget {
+class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final historyAsync = ref.watch(historyProvider);
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
+
+class _HistoryScreenState extends State<HistoryScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<HistoryProvider>().load();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final historyProv = context.watch<HistoryProvider>();
 
     return Scaffold(
       backgroundColor: AppTheme.bgColor(context),
       appBar: AppTopBar(
         title: 'Analysis History',
         actions: [
-          historyAsync.maybeWhen(
-            data: (items) => items.isNotEmpty
-                ? TextButton(
-                    onPressed: () => _clearAll(context, ref),
-                    child: const Text('Clear All',
-                        style: TextStyle(
-                            color: AppColors.red, fontSize: 13)),
-                  )
-                : const SizedBox.shrink(),
-            orElse: () => const SizedBox.shrink(),
-          ),
+          if (historyProv.loadState == LoadState.loaded &&
+              historyProv.items.isNotEmpty)
+            TextButton(
+              onPressed: () => _clearAll(context),
+              child: const Text('Clear All',
+                  style: TextStyle(color: AppColors.red, fontSize: 13)),
+            ),
         ],
       ),
-      body: historyAsync.when(
-        loading: () => ListView.separated(
-          padding: const EdgeInsets.all(Insets.md),
-          itemCount: 6,
-          separatorBuilder: (_, __) =>
-              const SizedBox(height: Insets.sm),
-          itemBuilder: (_, __) =>
-              const ShimmerBlock(height: 80, borderRadius: Radii.lg),
-        ),
-        error: (e, _) => EmptyStateWidget(
-          icon: Icons.error_outline_rounded,
-          title: 'Error loading history',
-          subtitle: e.toString(),
-        ),
-        data: (items) {
-          if (items.isEmpty) {
-            return const EmptyStateWidget(
-              icon: Icons.history_rounded,
-              title: 'No Analysis Yet',
-              subtitle:
-                  'Upload or capture a chart to get your first AI analysis.',
-            );
-          }
-
-          return ListView.separated(
-            padding: const EdgeInsets.all(Insets.md),
-            itemCount: items.length,
-            separatorBuilder: (_, __) =>
-                const SizedBox(height: Insets.sm),
-            itemBuilder: (context, i) =>
-                _HistoryItem(analysis: items[i], ref: ref),
-          );
-        },
-      ),
+      body: _buildBody(context, historyProv),
     );
   }
 
-  Future<void> _clearAll(BuildContext context, WidgetRef ref) async {
+  Widget _buildBody(BuildContext context, HistoryProvider historyProv) {
+    switch (historyProv.loadState) {
+      case LoadState.idle:
+      case LoadState.loading:
+        return ListView.separated(
+          padding: const EdgeInsets.all(Insets.md),
+          itemCount: 6,
+          separatorBuilder: (_, __) => const SizedBox(height: Insets.sm),
+          itemBuilder: (_, __) =>
+              const ShimmerBlock(height: 80, borderRadius: Radii.lg),
+        );
+      case LoadState.error:
+        return EmptyStateWidget(
+          icon: Icons.error_outline_rounded,
+          title: 'Error loading history',
+          subtitle: historyProv.error,
+        );
+      case LoadState.loaded:
+        if (historyProv.items.isEmpty) {
+          return const EmptyStateWidget(
+            icon: Icons.history_rounded,
+            title: 'No Analysis Yet',
+            subtitle:
+                'Upload or capture a chart to get your first AI analysis.',
+          );
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.all(Insets.md),
+          itemCount: historyProv.items.length,
+          separatorBuilder: (_, __) => const SizedBox(height: Insets.sm),
+          itemBuilder: (context, i) =>
+              _HistoryItem(analysis: historyProv.items[i]),
+        );
+    }
+  }
+
+  Future<void> _clearAll(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -80,12 +91,11 @@ class HistoryScreen extends ConsumerWidget {
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(Radii.lg)),
         title: const Text('Clear All History?',
-            style: TextStyle(
-                color: AppColors.textPrimary, fontSize: 16)),
+            style: TextStyle(color: AppColors.textPrimary, fontSize: 16)),
         content: const Text(
             'All analysis records will be permanently deleted.',
-            style: TextStyle(
-                color: AppColors.textSecondary, fontSize: 13)),
+            style:
+                TextStyle(color: AppColors.textSecondary, fontSize: 13)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -94,24 +104,21 @@ class HistoryScreen extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete',
-                style: TextStyle(color: AppColors.red)),
+            child:
+                const Text('Delete', style: TextStyle(color: AppColors.red)),
           ),
         ],
       ),
     );
-    if (confirmed == true) {
-      await HistoryRepository.instance.clearAll();
-      ref.invalidate(historyProvider);
+    if (confirmed == true && context.mounted) {
+      await context.read<HistoryProvider>().clearAll();
     }
   }
 }
 
 class _HistoryItem extends StatelessWidget {
   final ChartAnalysis analysis;
-  final WidgetRef ref;
-
-  const _HistoryItem({required this.analysis, required this.ref});
+  const _HistoryItem({required this.analysis});
 
   @override
   Widget build(BuildContext context) {
@@ -131,14 +138,10 @@ class _HistoryItem extends StatelessWidget {
           color: AppColors.red.withOpacity(0.15),
           borderRadius: BorderRadius.circular(Radii.lg),
         ),
-        child:
-            const Icon(Icons.delete_outline_rounded, color: AppColors.red),
+        child: const Icon(Icons.delete_outline_rounded, color: AppColors.red),
       ),
       confirmDismiss: (_) => _confirmDelete(context),
-      onDismissed: (_) async {
-        await HistoryRepository.instance.delete(analysis.id);
-        ref.invalidate(historyProvider);
-      },
+      onDismissed: (_) => context.read<HistoryProvider>().delete(analysis.id),
       child: GestureDetector(
         onTap: () => _openDetail(context),
         child: Container(
@@ -150,7 +153,6 @@ class _HistoryItem extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Thumbnail
               ClipRRect(
                 borderRadius: BorderRadius.circular(Radii.sm),
                 child: analysis.chartImagePath != null
@@ -159,13 +161,11 @@ class _HistoryItem extends StatelessWidget {
                         width: 60,
                         height: 60,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            _placeholderThumb(),
+                        errorBuilder: (_, __, ___) => _placeholderThumb(),
                       )
                     : _placeholderThumb(),
               ),
               const SizedBox(width: Insets.md),
-              // Info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,14 +207,12 @@ class _HistoryItem extends StatelessWidget {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        SentimentBadge(
-                            sentiment: analysis.sentiment),
+                        SentimentBadge(sentiment: analysis.sentiment),
                         const Spacer(),
                         Text(
                           _formatDate(analysis.timestamp),
                           style: const TextStyle(
-                              fontSize: 10,
-                              color: AppColors.textMuted),
+                              fontSize: 10, color: AppColors.textMuted),
                         ),
                       ],
                     ),
@@ -282,13 +280,13 @@ class _HistoryItem extends StatelessWidget {
       );
       return;
     }
-    // Show a bottom sheet with the full analysis
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl)),
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(Radii.xl)),
       ),
       builder: (_) => _AnalysisDetailSheet(analysis: analysis, file: file),
     );
@@ -300,13 +298,11 @@ class _HistoryItem extends StatelessWidget {
   }
 }
 
-// ─── Detail Bottom Sheet ─────────────────────────────────────────────────────
 class _AnalysisDetailSheet extends StatelessWidget {
   final ChartAnalysis analysis;
   final File file;
 
-  const _AnalysisDetailSheet(
-      {required this.analysis, required this.file});
+  const _AnalysisDetailSheet({required this.analysis, required this.file});
 
   @override
   Widget build(BuildContext context) {
@@ -321,7 +317,6 @@ class _AnalysisDetailSheet extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle
             Center(
               child: Container(
                 width: 36,

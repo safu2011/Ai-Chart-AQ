@@ -11,7 +11,7 @@ dependencies:
     sdk: flutter
 
   # State Management
-  flutter_riverpod: ^2.5.1
+  provider: ^6.1.2
 
   # Networking
   dio: ^5.7.0

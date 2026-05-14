@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
@@ -8,14 +8,14 @@ import '../../../services/history_repository.dart';
 import '../../../widgets/shared_widgets.dart';
 import '../../providers.dart';
 
-class SettingsScreen extends ConsumerStatefulWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+  State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen> {
   String _version = '';
 
   @override
@@ -31,7 +31,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = ref.watch(themeModeProvider);
+    final isDark = context.watch<ThemeProvider>().isDark;
     final bgColor = AppTheme.bgColor(context);
     final cardColor = AppTheme.cardColor(context);
     final borderColor = AppTheme.borderColor(context);
@@ -49,7 +49,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(Insets.md),
         children: [
-          // ── Appearance ────────────────────────────────────────────────────
           _SectionHeader(title: 'Appearance', textMuted: textMuted),
           const SizedBox(height: Insets.sm),
           _SettingsTile(
@@ -63,16 +62,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             textMuted: textMuted,
             trailing: Switch(
               value: isDark,
-              onChanged: (_) =>
-                  ref.read(themeModeProvider.notifier).toggle(),
+              onChanged: (_) => context.read<ThemeProvider>().toggle(),
               activeColor: gold,
               thumbColor: WidgetStateProperty.all(Colors.white),
             ),
           ),
-
           const SizedBox(height: Insets.lg),
-
-          // ── Data ─────────────────────────────────────────────────────────
           _SectionHeader(title: 'Data', textMuted: textMuted),
           const SizedBox(height: Insets.sm),
           _SettingsTile(
@@ -86,10 +81,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             textMuted: textMuted,
             onTap: () => _clearHistory(context),
           ),
-
           const SizedBox(height: Insets.lg),
-
-          // ── About ─────────────────────────────────────────────────────────
           _SectionHeader(title: 'About', textMuted: textMuted),
           const SizedBox(height: Insets.sm),
           Container(
@@ -108,16 +100,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                            colors: [gold, goldSoft]),
-                        borderRadius:
-                            BorderRadius.circular(Radii.sm),
+                        gradient: LinearGradient(colors: [gold, goldSoft]),
+                        borderRadius: BorderRadius.circular(Radii.sm),
                       ),
                       child: Icon(
                         Icons.candlestick_chart_rounded,
-                        color: isDark
-                            ? AppColorsDark.bg
-                            : AppColorsLight.bg,
+                        color: isDark ? AppColorsDark.bg : AppColorsLight.bg,
                         size: 20,
                       ),
                     ),
@@ -135,10 +123,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                         Text(
                           'Version $_version',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: textMuted,
-                          ),
+                          style: TextStyle(fontSize: 11, color: textMuted),
                         ),
                       ],
                     ),
@@ -168,7 +153,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
-
           const SizedBox(height: Insets.xl),
         ],
       ),
@@ -176,7 +160,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _clearHistory(BuildContext context) async {
-    final isDark = ref.read(themeModeProvider);
+    final isDark = context.read<ThemeProvider>().isDark;
     final cardColor = AppTheme.cardColor(context);
     final textPrimary = AppTheme.textPrimary(context);
     final textSecondary = AppTheme.textSecondary(context);
@@ -188,10 +172,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         backgroundColor: cardColor,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(Radii.lg)),
-        title: Text(
-          'Clear All History?',
-          style: TextStyle(color: textPrimary, fontSize: 16),
-        ),
+        title: Text('Clear All History?',
+            style: TextStyle(color: textPrimary, fontSize: 16)),
         content: Text(
           'All saved analyses will be permanently deleted.',
           style: TextStyle(color: textSecondary, fontSize: 13),
@@ -199,8 +181,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel',
-                style: TextStyle(color: textSecondary)),
+            child: Text('Cancel', style: TextStyle(color: textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -209,10 +190,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ],
       ),
     );
-    if (confirmed == true) {
+    if (confirmed == true && context.mounted) {
       await HistoryRepository.instance.clearAll();
-      ref.invalidate(historyProvider);
-      if (mounted) {
+      await context.read<HistoryProvider>().load();
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -232,11 +213,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 }
 
-// ─── Section Header ───────────────────────────────────────────────────────────
 class _SectionHeader extends StatelessWidget {
   final String title;
   final Color textMuted;
-
   const _SectionHeader({required this.title, required this.textMuted});
 
   @override
@@ -253,7 +232,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// ─── Settings Tile ────────────────────────────────────────────────────────────
 class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -307,18 +285,13 @@ class _SettingsTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: textPrimary,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(fontSize: 11, color: textMuted),
-                  ),
+                  Text(title,
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: textPrimary)),
+                  Text(subtitle,
+                      style: TextStyle(fontSize: 11, color: textMuted)),
                 ],
               ),
             ),

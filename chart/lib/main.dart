@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
@@ -10,29 +10,44 @@ import 'features/providers.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Lock to portrait (remove for tablet/landscape support).
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // Status bar style is updated reactively per theme in _AiChartAnalyzerAppState.
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
   ));
 
-  runApp(const ProviderScope(child: AiChartAnalyzerApp()));
+  final themeProvider = ThemeProvider();
+  final historyProvider = HistoryProvider();
+  final analysisProvider = AnalysisProvider();
+  final liveChartProvider = LiveChartProvider();
+
+  // Wire analysis → history refresh
+  analysisProvider.onAnalysisComplete = () => historyProvider.load();
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: themeProvider),
+        ChangeNotifierProvider.value(value: historyProvider),
+        ChangeNotifierProvider.value(value: analysisProvider),
+        ChangeNotifierProvider.value(value: liveChartProvider),
+      ],
+      child: const AiChartAnalyzerApp(),
+    ),
+  );
 }
 
-class AiChartAnalyzerApp extends ConsumerStatefulWidget {
+class AiChartAnalyzerApp extends StatefulWidget {
   const AiChartAnalyzerApp({super.key});
 
   @override
-  ConsumerState<AiChartAnalyzerApp> createState() =>
-      _AiChartAnalyzerAppState();
+  State<AiChartAnalyzerApp> createState() => _AiChartAnalyzerAppState();
 }
 
-class _AiChartAnalyzerAppState extends ConsumerState<AiChartAnalyzerApp> {
+class _AiChartAnalyzerAppState extends State<AiChartAnalyzerApp> {
   bool _disclaimerShown = false;
 
   @override
@@ -47,9 +62,8 @@ class _AiChartAnalyzerAppState extends ConsumerState<AiChartAnalyzerApp> {
   }
 
   void _showStartupDisclaimer() {
-    final isDark = ref.read(themeModeProvider);
-    final cardColor =
-        isDark ? AppColorsDark.card : AppColorsLight.card;
+    final isDark = context.read<ThemeProvider>().isDark;
+    final cardColor = isDark ? AppColorsDark.card : AppColorsLight.card;
     final textPrimary =
         isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary;
     final textSecondary =
@@ -74,7 +88,10 @@ class _AiChartAnalyzerAppState extends ConsumerState<AiChartAnalyzerApp> {
               height: 36,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [gold, isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft],
+                  colors: [
+                    gold,
+                    isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft
+                  ],
                 ),
                 borderRadius: BorderRadius.circular(Radii.sm),
               ),
@@ -160,15 +177,12 @@ class _AiChartAnalyzerAppState extends ConsumerState<AiChartAnalyzerApp> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = ref.watch(themeModeProvider);
+    final isDark = context.watch<ThemeProvider>().isDark;
 
-    // Keep system UI overlay in sync with the active theme.
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness:
-          isDark ? Brightness.light : Brightness.dark,
-      systemNavigationBarColor:
-          isDark ? AppColorsDark.bg : AppColorsLight.bg,
+      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor: isDark ? AppColorsDark.bg : AppColorsLight.bg,
       systemNavigationBarIconBrightness:
           isDark ? Brightness.light : Brightness.dark,
     ));

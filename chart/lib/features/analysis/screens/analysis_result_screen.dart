@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -12,30 +12,29 @@ import '../../../models/chart_analysis.dart';
 import '../../../widgets/shared_widgets.dart';
 import '../../providers.dart';
 
-class AnalysisResultScreen extends ConsumerStatefulWidget {
+class AnalysisResultScreen extends StatefulWidget {
   final File imageFile;
   const AnalysisResultScreen({super.key, required this.imageFile});
 
   @override
-  ConsumerState<AnalysisResultScreen> createState() =>
-      _AnalysisResultScreenState();
+  State<AnalysisResultScreen> createState() => _AnalysisResultScreenState();
 }
 
-class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
+class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final state = ref.read(analysisProvider);
-      if (state is AnalysisIdle) {
-        ref.read(analysisProvider.notifier).analyze(widget.imageFile);
+      final analysisProvider = context.read<AnalysisProvider>();
+      if (analysisProvider.state is AnalysisIdle) {
+        analysisProvider.analyze(widget.imageFile);
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(analysisProvider);
+    final state = context.watch<AnalysisProvider>().state;
 
     return Scaffold(
       backgroundColor: AppTheme.bgColor(context),
@@ -46,7 +45,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                 IconButton(
                   icon: const Icon(Icons.share_outlined,
                       color: AppColors.textSecondary, size: 20),
-                  onPressed: () => _share(state.result),
+                  onPressed: () => _share((state as AnalysisSuccess).result),
                 ),
               ]
             : null,
@@ -63,7 +62,6 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
     );
   }
 
-  // ─── Loading ───────────────────────────────────────────────────────────────
   Widget _buildLoading() {
     return SingleChildScrollView(
       key: const ValueKey('loading'),
@@ -71,7 +69,6 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Chart thumb
           ClipRRect(
             borderRadius: BorderRadius.circular(Radii.lg),
             child: Image.file(widget.imageFile,
@@ -114,7 +111,6 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
     );
   }
 
-  // ─── Error ─────────────────────────────────────────────────────────────────
   Widget _buildError(String message) {
     return Center(
       key: const ValueKey('error'),
@@ -151,7 +147,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
             GradientButton(
               label: 'Try Again',
               onTap: () =>
-                  ref.read(analysisProvider.notifier).analyze(widget.imageFile),
+                  context.read<AnalysisProvider>().analyze(widget.imageFile),
               width: 160,
             ),
             const SizedBox(height: 12),
@@ -166,7 +162,6 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
     );
   }
 
-  // ─── Result ────────────────────────────────────────────────────────────────
   Widget _buildResult(ChartAnalysis result) {
     return SingleChildScrollView(
       key: const ValueKey('result'),
@@ -227,7 +222,6 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
       padding: const EdgeInsets.all(Insets.md),
       child: Row(
         children: [
-          // Chart thumb
           ClipRRect(
             borderRadius: BorderRadius.circular(Radii.md),
             child: Image.file(
@@ -249,8 +243,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: AppColors.neutral,
-                        borderRadius:
-                            BorderRadius.circular(Radii.full),
+                        borderRadius: BorderRadius.circular(Radii.full),
                       ),
                       child: Text(result.assetType,
                           style: const TextStyle(
@@ -353,14 +346,10 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
               styleSheet: MarkdownStyleSheet(
                 p: TextStyle(fontSize: 13, color: ts, height: 1.6),
                 strong: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: tp),
+                    fontSize: 13, fontWeight: FontWeight.w700, color: tp),
                 listBullet: TextStyle(fontSize: 13, color: ts),
                 h3: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: tp),
+                    fontSize: 13, fontWeight: FontWeight.w700, color: tp),
               ),
             );
           }),
@@ -377,8 +366,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
             icon: Icons.copy_rounded,
             label: 'Copy',
             onTap: () {
-              Clipboard.setData(
-                  ClipboardData(text: result.rawMarkdown));
+              Clipboard.setData(ClipboardData(text: result.rawMarkdown));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Analysis copied to clipboard'),
@@ -447,7 +435,6 @@ ${AppConstants.disclaimer}
   }
 }
 
-// ─── Metric card with progress bar ──────────────────────────────────────────
 class _MetricCard extends StatelessWidget {
   final String label;
   final String value;
@@ -469,14 +456,12 @@ class _MetricCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: const TextStyle(
-                  fontSize: 11, color: AppColors.textMuted)),
+              style:
+                  const TextStyle(fontSize: 11, color: AppColors.textMuted)),
           const SizedBox(height: 4),
           Text(value,
               style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: color)),
+                  fontSize: 18, fontWeight: FontWeight.w800, color: color)),
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
