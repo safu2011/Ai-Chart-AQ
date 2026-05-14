@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_constants.dart';
@@ -11,24 +10,15 @@ import 'features/providers.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load .env
-  try {
-    await dotenv.load(fileName: '.env');
-  } catch (_) {
-    // .env not found — API key must be set via Settings
-  }
-
-  // Lock to portrait (optional — remove for tablet/landscape support)
+  // Lock to portrait (remove for tablet/landscape support).
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
+  // Status bar style is updated reactively per theme in _AiChartAnalyzerAppState.
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: AppColors.bg,
-    systemNavigationBarIconBrightness: Brightness.light,
   ));
 
   runApp(const ProviderScope(child: AiChartAnalyzerApp()));
@@ -57,11 +47,23 @@ class _AiChartAnalyzerAppState extends ConsumerState<AiChartAnalyzerApp> {
   }
 
   void _showStartupDisclaimer() {
+    final isDark = ref.read(themeModeProvider);
+    final cardColor =
+        isDark ? AppColorsDark.card : AppColorsLight.card;
+    final textPrimary =
+        isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary;
+    final textSecondary =
+        isDark ? AppColorsDark.textSecondary : AppColorsLight.textSecondary;
+    final gold = isDark ? AppColorsDark.gold : AppColorsLight.gold;
+    final bgColor = isDark ? AppColorsDark.bg : AppColorsLight.bg;
+    final borderColor =
+        isDark ? AppColorsDark.border : AppColorsLight.border;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.card,
+        backgroundColor: cardColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Radii.xl),
         ),
@@ -71,20 +73,24 @@ class _AiChartAnalyzerAppState extends ConsumerState<AiChartAnalyzerApp> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [AppColors.gold, AppColors.goldSoft]),
+                gradient: LinearGradient(
+                  colors: [gold, isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft],
+                ),
                 borderRadius: BorderRadius.circular(Radii.sm),
               ),
-              child: const Icon(Icons.candlestick_chart_rounded,
-                  color: AppColors.bg, size: 18),
+              child: Icon(Icons.candlestick_chart_rounded,
+                  color: bgColor, size: 18),
             ),
             const SizedBox(width: 10),
-            const Expanded(
-              child: Text('Important Notice',
-                  style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700)),
+            Expanded(
+              child: Text(
+                'Important Notice',
+                style: TextStyle(
+                  color: textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ],
         ),
@@ -95,28 +101,30 @@ class _AiChartAnalyzerAppState extends ConsumerState<AiChartAnalyzerApp> {
             Container(
               padding: const EdgeInsets.all(Insets.sm + 4),
               decoration: BoxDecoration(
-                color: AppColors.gold.withOpacity(0.07),
+                color: gold.withOpacity(0.07),
                 borderRadius: BorderRadius.circular(Radii.md),
-                border: Border.all(color: AppColors.gold.withOpacity(0.2)),
+                border: Border.all(color: borderColor),
               ),
-              child: const Text(
+              child: Text(
                 AppConstants.startupDisclaimer,
                 style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textPrimary,
-                    height: 1.5,
-                    fontWeight: FontWeight.w500),
+                  fontSize: 13,
+                  color: textPrimary,
+                  height: 1.5,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'This app uses OpenAI Vision to analyze chart images. '
+            Text(
+              'This app uses OpenAI Vision to analyse chart images. '
               'All analyses are for educational purposes only and should '
               'never be treated as financial advice.',
               style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                  height: 1.5),
+                fontSize: 12,
+                color: textSecondary,
+                height: 1.5,
+              ),
             ),
           ],
         ),
@@ -127,19 +135,20 @@ class _AiChartAnalyzerAppState extends ConsumerState<AiChartAnalyzerApp> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: TextButton(
                 style: TextButton.styleFrom(
-                  backgroundColor: AppColors.gold,
+                  backgroundColor: gold,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(Radii.full),
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 onPressed: () => Navigator.pop(context),
-                child: const Text(
+                child: Text(
                   'I Understand',
                   style: TextStyle(
-                      color: AppColors.bg,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14),
+                    color: bgColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ),
@@ -152,6 +161,17 @@ class _AiChartAnalyzerAppState extends ConsumerState<AiChartAnalyzerApp> {
   @override
   Widget build(BuildContext context) {
     final isDark = ref.watch(themeModeProvider);
+
+    // Keep system UI overlay in sync with the active theme.
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness:
+          isDark ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor:
+          isDark ? AppColorsDark.bg : AppColorsLight.bg,
+      systemNavigationBarIconBrightness:
+          isDark ? Brightness.light : Brightness.dark,
+    ));
 
     return MaterialApp(
       title: AppConstants.appName,

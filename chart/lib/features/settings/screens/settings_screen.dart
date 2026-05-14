@@ -17,21 +17,11 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _version = '';
-  bool _apiKeyObscured = true;
-  final TextEditingController _apiKeyCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadInfo();
-    final key = ref.read(apiKeyProvider);
-    _apiKeyCtrl.text = key;
-  }
-
-  @override
-  void dispose() {
-    _apiKeyCtrl.dispose();
-    super.dispose();
   }
 
   Future<void> _loadInfo() async {
@@ -42,135 +32,73 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = ref.watch(themeModeProvider);
+    final bgColor = AppTheme.bgColor(context);
+    final cardColor = AppTheme.cardColor(context);
+    final borderColor = AppTheme.borderColor(context);
+    final textPrimary = AppTheme.textPrimary(context);
+    final textSecondary = AppTheme.textSecondary(context);
+    final textMuted = AppTheme.textMuted(context);
+    final gold = AppTheme.gold(context);
+    final neutral = AppTheme.neutral(context);
+    final goldSoft = isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft;
+    final red = AppTheme.red(context);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: const AppTopBar(title: 'Settings'),
+      backgroundColor: bgColor,
+      appBar: AppTopBar(title: 'Settings'),
       body: ListView(
         padding: const EdgeInsets.all(Insets.md),
         children: [
-          // ── API Configuration ──────────────────────────────────────
-          const SectionHeader(title: 'API Configuration'),
-          const SizedBox(height: Insets.sm),
-          GlassCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('OpenAI API Key',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _apiKeyCtrl,
-                  obscureText: _apiKeyObscured,
-                  style: const TextStyle(
-                      color: AppColors.textPrimary, fontSize: 13),
-                  decoration: InputDecoration(
-                    hintText: 'sk-...',
-                    hintStyle: const TextStyle(
-                        color: AppColors.textMuted, fontSize: 13),
-                    filled: true,
-                    fillColor: AppColors.neutral,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(Radii.md),
-                      borderSide:
-                          const BorderSide(color: AppColors.border),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(Radii.md),
-                      borderSide:
-                          const BorderSide(color: AppColors.border),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(Radii.md),
-                      borderSide:
-                          const BorderSide(color: AppColors.gold),
-                    ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _apiKeyObscured
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: AppColors.textMuted,
-                        size: 18,
-                      ),
-                      onPressed: () => setState(
-                          () => _apiKeyObscured = !_apiKeyObscured),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                GradientButton(
-                  label: 'Save API Key',
-                  height: 42,
-                  onTap: () {
-                    ref
-                        .read(apiKeyProvider.notifier)
-                        .save(_apiKeyCtrl.text.trim());
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('API key saved'),
-                        backgroundColor: AppColors.card,
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Your key is stored locally on-device only and never sent anywhere except directly to OpenAI.',
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textMuted,
-                      height: 1.4),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: Insets.lg),
-
-          // ── Appearance ──────────────────────────────────────────────
-          const SectionHeader(title: 'Appearance'),
+          // ── Appearance ────────────────────────────────────────────────────
+          _SectionHeader(title: 'Appearance', textMuted: textMuted),
           const SizedBox(height: Insets.sm),
           _SettingsTile(
-            icon: Icons.dark_mode_rounded,
+            icon: isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
             title: 'Dark Mode',
             subtitle: isDark ? 'Currently dark' : 'Currently light',
+            iconColor: gold,
+            cardColor: cardColor,
+            borderColor: borderColor,
+            textPrimary: textPrimary,
+            textMuted: textMuted,
             trailing: Switch(
               value: isDark,
               onChanged: (_) =>
                   ref.read(themeModeProvider.notifier).toggle(),
-              activeColor: AppColors.gold,
-              inactiveTrackColor: AppColors.card,
+              activeColor: gold,
+              thumbColor: WidgetStateProperty.all(Colors.white),
             ),
           ),
 
           const SizedBox(height: Insets.lg),
 
-          // ── Data ────────────────────────────────────────────────────
-          const SectionHeader(title: 'Data'),
+          // ── Data ─────────────────────────────────────────────────────────
+          _SectionHeader(title: 'Data', textMuted: textMuted),
           const SizedBox(height: Insets.sm),
           _SettingsTile(
             icon: Icons.delete_outline_rounded,
             title: 'Clear Analysis History',
             subtitle: 'Remove all saved analyses',
-            iconColor: AppColors.red,
+            iconColor: red,
+            cardColor: cardColor,
+            borderColor: borderColor,
+            textPrimary: textPrimary,
+            textMuted: textMuted,
             onTap: () => _clearHistory(context),
           ),
 
           const SizedBox(height: Insets.lg),
 
-          // ── Disclaimer / About ──────────────────────────────────────
-          const SectionHeader(title: 'About'),
+          // ── About ─────────────────────────────────────────────────────────
+          _SectionHeader(title: 'About', textMuted: textMuted),
           const SizedBox(height: Insets.sm),
-          GlassCard(
+          Container(
+            padding: const EdgeInsets.all(Insets.md),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(Radii.lg),
+              border: Border.all(color: borderColor),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -180,51 +108,62 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                            colors: [AppColors.gold, AppColors.goldSoft]),
+                        gradient: LinearGradient(
+                            colors: [gold, goldSoft]),
                         borderRadius:
                             BorderRadius.circular(Radii.sm),
                       ),
-                      child: const Icon(
-                          Icons.candlestick_chart_rounded,
-                          color: AppColors.bg,
-                          size: 20),
+                      child: Icon(
+                        Icons.candlestick_chart_rounded,
+                        color: isDark
+                            ? AppColorsDark.bg
+                            : AppColorsLight.bg,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(AppConstants.appName,
-                            style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary)),
-                        Text('Version $_version',
-                            style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textMuted)),
+                        Text(
+                          AppConstants.appName,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'Version $_version',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: textMuted,
+                          ),
+                        ),
                       ],
                     ),
                   ],
                 ),
                 const SizedBox(height: Insets.md),
-                const Divider(color: AppColors.border),
+                Divider(color: borderColor),
                 const SizedBox(height: Insets.sm),
-                const Text(
+                Text(
                   'DISCLAIMER',
                   style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textMuted,
-                      letterSpacing: 1),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: textMuted,
+                    letterSpacing: 1,
+                  ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   AppConstants.disclaimer,
                   style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      height: 1.6),
+                    fontSize: 12,
+                    color: textSecondary,
+                    height: 1.6,
+                  ),
                 ),
               ],
             ),
@@ -237,29 +176,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _clearHistory(BuildContext context) async {
+    final isDark = ref.read(themeModeProvider);
+    final cardColor = AppTheme.cardColor(context);
+    final textPrimary = AppTheme.textPrimary(context);
+    final textSecondary = AppTheme.textSecondary(context);
+    final red = AppTheme.red(context);
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.card,
+        backgroundColor: cardColor,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(Radii.lg)),
-        title: const Text('Clear All History?',
-            style: TextStyle(
-                color: AppColors.textPrimary, fontSize: 16)),
-        content: const Text(
-            'All saved analyses will be permanently deleted.',
-            style: TextStyle(
-                color: AppColors.textSecondary, fontSize: 13)),
+        title: Text(
+          'Clear All History?',
+          style: TextStyle(color: textPrimary, fontSize: 16),
+        ),
+        content: Text(
+          'All saved analyses will be permanently deleted.',
+          style: TextStyle(color: textSecondary, fontSize: 13),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel',
-                style: TextStyle(color: AppColors.textSecondary)),
+            child: Text('Cancel',
+                style: TextStyle(color: textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete',
-                style: TextStyle(color: AppColors.red)),
+            child: Text('Delete', style: TextStyle(color: red)),
           ),
         ],
       ),
@@ -269,13 +214,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ref.invalidate(historyProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('History cleared'),
-            backgroundColor: AppColors.card,
+          SnackBar(
+            content: Text(
+              'History cleared',
+              style: TextStyle(
+                  color: isDark
+                      ? AppColorsDark.textPrimary
+                      : AppColorsLight.textPrimary),
+            ),
+            backgroundColor: isDark
+                ? AppColorsDark.cardElevated
+                : AppColorsLight.cardElevated,
           ),
         );
       }
     }
+  }
+}
+
+// ─── Section Header ───────────────────────────────────────────────────────────
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final Color textMuted;
+
+  const _SectionHeader({required this.title, required this.textMuted});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title.toUpperCase(),
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: textMuted,
+        letterSpacing: 1,
+      ),
+    );
   }
 }
 
@@ -287,11 +261,19 @@ class _SettingsTile extends StatelessWidget {
   final Widget? trailing;
   final VoidCallback? onTap;
   final Color? iconColor;
+  final Color cardColor;
+  final Color borderColor;
+  final Color textPrimary;
+  final Color textMuted;
 
   const _SettingsTile({
     required this.icon,
     required this.title,
     required this.subtitle,
+    required this.cardColor,
+    required this.borderColor,
+    required this.textPrimary,
+    required this.textMuted,
     this.trailing,
     this.onTap,
     this.iconColor,
@@ -299,14 +281,15 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = iconColor ?? AppTheme.gold(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(Insets.md),
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: cardColor,
           borderRadius: BorderRadius.circular(Radii.lg),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: borderColor),
         ),
         child: Row(
           children: [
@@ -314,32 +297,34 @@ class _SettingsTile extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: (iconColor ?? AppColors.gold).withOpacity(0.1),
+                color: accent.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(Radii.sm),
               ),
-              child: Icon(icon,
-                  color: iconColor ?? AppColors.gold, size: 18),
+              child: Icon(icon, color: accent, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary)),
-                  Text(subtitle,
-                      style: const TextStyle(
-                          fontSize: 11, color: AppColors.textMuted)),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 11, color: textMuted),
+                  ),
                 ],
               ),
             ),
             if (trailing != null) trailing!,
             if (trailing == null && onTap != null)
-              const Icon(Icons.chevron_right_rounded,
-                  color: AppColors.textMuted, size: 18),
+              Icon(Icons.chevron_right_rounded, color: textMuted, size: 18),
           ],
         ),
       ),

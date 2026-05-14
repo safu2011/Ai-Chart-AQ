@@ -18,7 +18,7 @@ class HistoryScreen extends ConsumerWidget {
     final historyAsync = ref.watch(historyProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppTheme.bgColor(context),
       appBar: AppTopBar(
         title: 'Analysis History',
         actions: [

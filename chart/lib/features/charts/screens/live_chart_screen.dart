@@ -76,7 +76,7 @@ class _LiveChartScreenState extends ConsumerState<LiveChartScreen> {
     final tickerAsync = ref.watch(tickerProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppTheme.bgColor(context),
       appBar: AppTopBar(
         title: _showSearch ? '' : pair,
         actions: [

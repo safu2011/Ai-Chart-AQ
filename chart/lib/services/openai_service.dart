@@ -2,33 +2,28 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/constants/app_constants.dart';
 import '../models/chart_analysis.dart';
 
 /// Handles all communication with the OpenAI Vision API.
+///
+/// The API key is sourced exclusively from [AppConstants.openAiApiKey],
+/// which is either supplied at build-time via --dart-define=OPENAI_API_KEY=sk-...
+/// or falls back to the 'YOUR_API_KEY_HERE' placeholder.
 class OpenAiService {
   static final OpenAiService instance = OpenAiService._();
   OpenAiService._();
 
   late final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: 'https://api.openai.com/v1',
+      baseUrl: AppConstants.openAiBaseUrl,
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 90),
     ),
   );
 
-  /// Resolve API key: prefer user-saved key over .env
-  Future<String> _resolveApiKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString('openai_api_key') ?? '';
-    if (saved.isNotEmpty) return saved;
-    return dotenv.env['OPENAI_API_KEY'] ?? '';
-  }
-
-  /// Infer MIME type from file extension (avoids the mime package)
+  /// Infer MIME type from file extension (avoids the mime package).
   static String _mimeFromPath(String path) {
     final ext = path.toLowerCase().split('.').last;
     switch (ext) {
@@ -89,10 +84,12 @@ If the image is not a financial chart, set sentiment to "Neutral", sentiment_sco
 
   /// Analyse a chart [imageFile] using GPT-4o Vision.
   Future<ChartAnalysis> analyzeChart(File imageFile) async {
-    final apiKey = await _resolveApiKey();
-    if (apiKey.isEmpty) {
+    final apiKey = AppConstants.openAiApiKey;
+    if (apiKey.isEmpty || apiKey == 'YOUR_API_KEY_HERE') {
       throw Exception(
-          'No OpenAI API key found. Please add your key in Settings.');
+        'OpenAI API key is not configured. '
+        'Supply it via --dart-define=OPENAI_API_KEY=sk-...',
+      );
     }
 
     final mimeType = _mimeFromPath(imageFile.path);
@@ -109,7 +106,7 @@ If the image is not a financial chart, set sentiment to "Neutral", sentiment_sco
         },
       ),
       data: {
-        'model': 'gpt-4o-mini',
+        'model': AppConstants.openAiModel,
         'max_tokens': 2000,
         'messages': [
           {
@@ -131,7 +128,7 @@ If the image is not a financial chart, set sentiment to "Neutral", sentiment_sco
       String answer =
           (data['choices'] as List).first['message']['content'] as String;
 
-      // Strip markdown code fences if the model adds them despite instructions
+      // Strip markdown code fences if the model adds them despite instructions.
       answer = answer.trim();
       if (answer.startsWith('```')) {
         answer = answer
@@ -162,7 +159,7 @@ If the image is not a financial chart, set sentiment to "Neutral", sentiment_sco
       }
       final status = error.response?.statusCode;
       if (status == 401) {
-        return 'Invalid API key. Please update your OpenAI key in Settings.';
+        return 'Invalid API key. Please check the configured OpenAI key.';
       }
       if (status == 429) {
         return 'Rate limit exceeded. Please wait a moment and try again.';

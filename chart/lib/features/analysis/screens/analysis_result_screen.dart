@@ -38,7 +38,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
     final state = ref.watch(analysisProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppTheme.bgColor(context),
       appBar: AppTopBar(
         title: 'AI Analysis',
         actions: state is AnalysisSuccess
@@ -345,25 +345,25 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
             ],
           ),
           const SizedBox(height: Insets.sm),
-          MarkdownBody(
-            data: content,
-            styleSheet: MarkdownStyleSheet(
-              p: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                  height: 1.6),
-              strong: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary),
-              listBullet: const TextStyle(
-                  fontSize: 13, color: AppColors.textSecondary),
-              h3: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary),
-            ),
-          ),
+          Builder(builder: (context) {
+            final tp = AppTheme.textPrimary(context);
+            final ts = AppTheme.textSecondary(context);
+            return MarkdownBody(
+              data: content,
+              styleSheet: MarkdownStyleSheet(
+                p: TextStyle(fontSize: 13, color: ts, height: 1.6),
+                strong: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: tp),
+                listBullet: TextStyle(fontSize: 13, color: ts),
+                h3: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: tp),
+              ),
+            );
+          }),
         ],
       ),
     );

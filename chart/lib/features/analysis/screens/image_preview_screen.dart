@@ -88,7 +88,7 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppTheme.bgColor(context),
       appBar: AppTopBar(
         title: 'Preview & Markup',
         actions: [

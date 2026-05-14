@@ -6,6 +6,15 @@ class AppConstants {
   static const appName = 'AI Chart Analyzer';
   static const appVersion = '1.0.0';
 
+  // ── OpenAI API Key ─────────────────────────────────────────────────────────
+  // Replace 'YOUR_API_KEY_HERE' with your actual key, OR supply it at build
+  // time via:  flutter run --dart-define=OPENAI_API_KEY=sk-...
+  // Do NOT commit a real key to version control.
+  static const String openAiApiKey = String.fromEnvironment(
+    'OPENAI_API_KEY',
+    defaultValue: 'YOUR_API_KEY_HERE',
+  );
+
   // Binance
   static const binanceBaseUrl = 'https://api.binance.com/api/v3';
   static const binanceWsUrl = 'wss://stream.binance.com:9443/ws';

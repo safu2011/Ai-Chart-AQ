@@ -4,7 +4,7 @@ import 'package:shimmer/shimmer.dart';
 import '../core/constants/app_constants.dart';
 import '../core/theme/app_theme.dart';
 
-// ─── Premium Gradient Button ─────────────────────────────────────────────────
+// ─── Premium Gradient Button ──────────────────────────────────────────────────
 class GradientButton extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
@@ -25,8 +25,15 @@ class GradientButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final grad = colors ??
-        [AppColors.gold, AppColors.goldSoft, const Color(0xFFB8860B)];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final goldColor = AppTheme.gold(context);
+    final goldSoft =
+        isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft;
+
+    final grad = colors ?? [goldColor, goldSoft, const Color(0xFFB8860B)];
+    final labelColor =
+        onTap != null ? AppTheme.bgColor(context) : AppTheme.textMuted(context);
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -55,7 +62,7 @@ class GradientButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: onTap != null ? AppColors.bg : AppColors.textMuted,
+                color: labelColor,
               ),
             ),
           ],
@@ -65,7 +72,7 @@ class GradientButton extends StatelessWidget {
   }
 }
 
-// ─── Outlined Button ─────────────────────────────────────────────────────────
+// ─── Outlined Button ──────────────────────────────────────────────────────────
 class OutlineButton extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
@@ -84,8 +91,8 @@ class OutlineButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bc = borderColor ?? AppColors.border;
-    final tc = textColor ?? AppColors.textPrimary;
+    final bc = borderColor ?? AppTheme.borderColor(context);
+    final tc = textColor ?? AppTheme.textPrimary(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -94,7 +101,7 @@ class OutlineButton extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border.all(color: bc),
           borderRadius: BorderRadius.circular(Radii.full),
-          color: AppColors.card,
+          color: AppTheme.cardColor(context),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -112,7 +119,7 @@ class OutlineButton extends StatelessWidget {
   }
 }
 
-// ─── Glass Card ──────────────────────────────────────────────────────────────
+// ─── Glass Card ───────────────────────────────────────────────────────────────
 class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -131,23 +138,28 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardElevated = isDark
+        ? AppColorsDark.cardElevated
+        : AppColorsLight.cardElevated;
+    final cardBase =
+        isDark ? AppColorsDark.card : AppColorsLight.card;
+    final bColor = borderColor ?? AppTheme.borderColor(context);
+
     return Container(
       padding: padding ?? const EdgeInsets.all(Insets.md),
       decoration: BoxDecoration(
         gradient: gradient ??
-            const LinearGradient(
+            LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [AppColors.cardElevated, AppColors.card],
+              colors: [cardElevated, cardBase],
             ),
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(
-          color: borderColor ?? AppColors.border,
-          width: 1,
-        ),
+        border: Border.all(color: bColor, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -158,7 +170,7 @@ class GlassCard extends StatelessWidget {
   }
 }
 
-// ─── Section Header ──────────────────────────────────────────────────────────
+// ─── Section Header ───────────────────────────────────────────────────────────
 class SectionHeader extends StatelessWidget {
   final String title;
   final Widget? action;
@@ -167,16 +179,21 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gold = AppTheme.gold(context);
+    final goldSoft =
+        isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft;
+
     return Row(
       children: [
         Container(
           width: 3,
           height: 18,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [AppColors.gold, AppColors.goldSoft],
+              colors: [gold, goldSoft],
             ),
             borderRadius: BorderRadius.circular(2),
           ),
@@ -184,10 +201,10 @@ class SectionHeader extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            color: AppTheme.textPrimary(context),
           ),
         ),
         const Spacer(),
@@ -197,7 +214,7 @@ class SectionHeader extends StatelessWidget {
   }
 }
 
-// ─── Sentiment Badge ─────────────────────────────────────────────────────────
+// ─── Sentiment Badge ──────────────────────────────────────────────────────────
 class SentimentBadge extends StatelessWidget {
   final String sentiment;
   final bool large;
@@ -207,16 +224,17 @@ class SentimentBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lower = sentiment.toLowerCase();
-    Color color;
-    IconData icon;
+    late Color color;
+    late IconData icon;
+
     if (lower == 'bullish') {
-      color = AppColors.emerald;
+      color = AppTheme.emerald(context);
       icon = Icons.trending_up_rounded;
     } else if (lower == 'bearish') {
-      color = AppColors.red;
+      color = AppTheme.red(context);
       icon = Icons.trending_down_rounded;
     } else {
-      color = AppColors.gold;
+      color = AppTheme.gold(context);
       icon = Icons.trending_flat_rounded;
     }
 
@@ -250,7 +268,7 @@ class SentimentBadge extends StatelessWidget {
   }
 }
 
-// ─── Shimmer Loader ──────────────────────────────────────────────────────────
+// ─── Shimmer Loader ───────────────────────────────────────────────────────────
 class ShimmerBlock extends StatelessWidget {
   final double height;
   final double? width;
@@ -265,14 +283,20 @@ class ShimmerBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base =
+        isDark ? AppColorsDark.card : AppColorsLight.neutral;
+    final highlight =
+        isDark ? AppColorsDark.cardElevated : AppColorsLight.cardElevated;
+
     return Shimmer.fromColors(
-      baseColor: AppColors.card,
-      highlightColor: AppColors.cardElevated,
+      baseColor: base,
+      highlightColor: highlight,
       child: Container(
         width: width ?? double.infinity,
         height: height,
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: base,
           borderRadius: BorderRadius.circular(borderRadius),
         ),
       ),
@@ -280,22 +304,22 @@ class ShimmerBlock extends StatelessWidget {
   }
 }
 
-// ─── Analysis Loading Skeleton ───────────────────────────────────────────────
+// ─── Analysis Loading Skeleton ────────────────────────────────────────────────
 class AnalysisLoadingSkeleton extends StatelessWidget {
   const AnalysisLoadingSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const ShimmerBlock(height: 60, borderRadius: Radii.lg),
-        const SizedBox(height: 12),
-        const ShimmerBlock(height: 120, borderRadius: Radii.lg),
-        const SizedBox(height: 12),
-        const ShimmerBlock(height: 100, borderRadius: Radii.lg),
-        const SizedBox(height: 12),
-        const ShimmerBlock(height: 80, borderRadius: Radii.lg),
+        ShimmerBlock(height: 60, borderRadius: Radii.lg),
+        SizedBox(height: 12),
+        ShimmerBlock(height: 120, borderRadius: Radii.lg),
+        SizedBox(height: 12),
+        ShimmerBlock(height: 100, borderRadius: Radii.lg),
+        SizedBox(height: 12),
+        ShimmerBlock(height: 80, borderRadius: Radii.lg),
       ],
     );
   }
@@ -317,19 +341,26 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   @override
-  Size get preferredSize => const Size.fromHeight(60);
+  Size get preferredSize => const Size.fromHeight(76);
 
   @override
   Widget build(BuildContext context) {
+    final bgColor = AppTheme.bgColor(context);
+    final cardColor = AppTheme.cardColor(context);
+    final borderColor = AppTheme.borderColor(context);
+    final textPrimary = AppTheme.textPrimary(context);
+
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.bg,
-        border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
+      decoration: BoxDecoration(
+        color: bgColor,
+        border:
+            Border(bottom: BorderSide(color: borderColor, width: 0.5)),
       ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Insets.md),
+          padding:
+              const EdgeInsets.symmetric(horizontal: Insets.md,vertical: Insets.md),
           child: Row(
             children: [
               if (showBack)
@@ -339,22 +370,26 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(Radii.md),
-                      border: Border.all(color: AppColors.border),
+                      color: cardColor,
+                      borderRadius:
+                          BorderRadius.circular(Radii.md),
+                      border: Border.all(color: borderColor),
                     ),
-                    child: const Icon(Icons.arrow_back_ios_new_rounded,
-                        size: 16, color: AppColors.textPrimary),
+                    child: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 16,
+                      color: textPrimary,
+                    ),
                   ),
                 ),
               if (showBack) const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: textPrimary,
                   ),
                 ),
               ),
@@ -394,23 +429,33 @@ class EmptyStateWidget extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: AppColors.card,
+                color: AppTheme.cardColor(context),
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: AppTheme.borderColor(context)),
               ),
-              child: Icon(icon, size: 36, color: AppColors.textMuted),
+              child: Icon(
+                icon,
+                size: 36,
+                color: AppTheme.textMuted(context),
+              ),
             ),
             const SizedBox(height: 16),
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary)),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary(context),
+              ),
+            ),
             const SizedBox(height: 6),
             Text(
               subtitle,
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.textSecondary, height: 1.5),
+              style: TextStyle(
+                fontSize: 13,
+                color: AppTheme.textSecondary(context),
+                height: 1.5,
+              ),
               textAlign: TextAlign.center,
             ),
             if (action != null) ...[const SizedBox(height: 20), action!],
@@ -428,26 +473,27 @@ class DisclaimerBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final gold = AppTheme.gold(context);
     return Container(
       padding: const EdgeInsets.all(Insets.sm + 4),
       decoration: BoxDecoration(
-        color: AppColors.gold.withOpacity(0.07),
+        color: gold.withOpacity(0.07),
         borderRadius: BorderRadius.circular(Radii.md),
-        border: Border.all(color: AppColors.gold.withOpacity(0.2)),
+        border: Border.all(color: gold.withOpacity(0.2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline_rounded,
-              size: 14, color: AppColors.gold),
+          Icon(Icons.info_outline_rounded, size: 14, color: gold),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
-                  height: 1.5),
+              style: TextStyle(
+                fontSize: 11,
+                color: AppTheme.textSecondary(context),
+                height: 1.5,
+              ),
             ),
           ),
         ],
@@ -456,7 +502,7 @@ class DisclaimerBanner extends StatelessWidget {
   }
 }
 
-// ─── Metric Tile ─────────────────────────────────────────────────────────────
+// ─── Metric Tile ──────────────────────────────────────────────────────────────
 class MetricTile extends StatelessWidget {
   final String label;
   final String value;
@@ -479,16 +525,18 @@ class MetricTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 11, color: AppColors.textMuted)),
+          Text(
+            label,
+            style: TextStyle(
+                fontSize: 11, color: AppTheme.textMuted(context)),
+          ),
           const SizedBox(height: 4),
           Text(
             value,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
-              color: valueColor ?? AppColors.textPrimary,
+              color: valueColor ?? AppTheme.textPrimary(context),
             ),
           ),
         ],

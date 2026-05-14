@@ -9,7 +9,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../widgets/shared_widgets.dart';
 import '../../analysis/screens/image_preview_screen.dart';
 import '../../charts/screens/live_chart_screen.dart';
-
 import '../../history/screens/history_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 
@@ -31,7 +30,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.initState();
     _animCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 700));
-    _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _fadeAnim =
+        CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 0.08),
       end: Offset.zero,
@@ -58,25 +58,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final bgColor = AppTheme.bgColor(context);
+    final borderColor = AppTheme.borderColor(context);
+    final textSecondary = AppTheme.textSecondary(context);
+
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: bgColor,
       body: FadeTransition(
         opacity: _fadeAnim,
         child: SlideTransition(
           position: _slideAnim,
           child: CustomScrollView(
             slivers: [
-              _buildSliverHeader(),
+              _buildSliverHeader(bgColor, borderColor, textSecondary),
               SliverPadding(
                 padding: const EdgeInsets.symmetric(
                     horizontal: Insets.md, vertical: Insets.md),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    _buildWelcomeCard(),
+                    _buildWelcomeCard(context),
                     const SizedBox(height: Insets.lg),
-                    _buildUploadSection(),
+                    _buildUploadSection(context),
                     const SizedBox(height: Insets.lg),
-                    _buildQuickActionsSection(),
+                    _buildQuickActionsSection(context),
                     const SizedBox(height: Insets.lg),
                     const DisclaimerBanner(
                         text: AppConstants.startupDisclaimer),
@@ -91,49 +95,57 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  SliverAppBar _buildSliverHeader() {
+  SliverAppBar _buildSliverHeader(
+      Color bgColor, Color borderColor, Color textSecondary) {
     return SliverAppBar(
-      backgroundColor: AppColors.bg,
+      backgroundColor: bgColor,
       pinned: true,
       expandedHeight: 0,
       toolbarHeight: 60,
       flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.bg,
+        decoration: BoxDecoration(
+          color: bgColor,
           border: Border(
-            bottom: BorderSide(color: AppColors.border, width: 0.5),
+            bottom: BorderSide(color: borderColor, width: 0.5),
           ),
         ),
       ),
       title: Row(
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.gold, AppColors.goldSoft],
+          Builder(builder: (context) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final gold = AppTheme.gold(context);
+            final goldSoft = isDark
+                ? AppColorsDark.goldSoft
+                : AppColorsLight.goldSoft;
+            final iconBg = isDark ? AppColorsDark.bg : AppColorsLight.bg;
+            return Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [gold, goldSoft]),
+                borderRadius: BorderRadius.circular(Radii.sm),
               ),
-              borderRadius: BorderRadius.circular(Radii.sm),
-            ),
-            child: const Icon(Icons.candlestick_chart_rounded,
-                color: AppColors.bg, size: 18),
-          ),
+              child: Icon(Icons.candlestick_chart_rounded,
+                  color: iconBg, size: 18),
+            );
+          }),
           const SizedBox(width: 10),
-          const Text(
-            'AI Chart Analyzer',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-            ),
-          ),
+          Builder(builder: (context) {
+            return Text(
+              'AI Chart Analyzer',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimary(context),
+              ),
+            );
+          }),
         ],
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.settings_outlined,
-              color: AppColors.textSecondary),
+          icon: Icon(Icons.settings_outlined, color: textSecondary),
           onPressed: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const SettingsScreen()),
           ),
@@ -142,20 +154,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildWelcomeCard() {
+  Widget _buildWelcomeCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gold = AppTheme.gold(context);
+    final goldSoft =
+        isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft;
+    final borderGlow =
+        isDark ? AppColorsDark.borderGlow : AppColorsLight.borderGlow;
+
     return Container(
       padding: const EdgeInsets.all(Insets.lg),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1A1F2E), Color(0xFF0F1520)],
+          colors: isDark
+              ? const [Color(0xFF1A1F2E), Color(0xFF0F1520)]
+              : const [Color(0xFFFFFFFF), Color(0xFFF0F4FF)],
         ),
         borderRadius: BorderRadius.circular(Radii.xl),
-        border: Border.all(color: AppColors.borderGlow),
+        border: Border.all(color: borderGlow),
         boxShadow: [
           BoxShadow(
-            color: AppColors.gold.withOpacity(0.06),
+            color: gold.withOpacity(0.06),
             blurRadius: 30,
             offset: const Offset(0, 10),
           ),
@@ -170,20 +191,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 padding: const EdgeInsets.symmetric(
                     horizontal: Insets.sm, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.gold.withOpacity(0.15),
+                  color: gold.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(Radii.full),
-                  border:
-                      Border.all(color: AppColors.gold.withOpacity(0.3)),
+                  border: Border.all(color: gold.withOpacity(0.3)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(Icons.auto_awesome_rounded,
-                        color: AppColors.gold, size: 11),
-                    SizedBox(width: 4),
+                        color: gold, size: 11),
+                    const SizedBox(width: 4),
                     Text(
                       'GPT-4o Vision',
                       style: TextStyle(
-                        color: AppColors.gold,
+                        color: gold,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
@@ -195,21 +215,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ],
           ),
           const SizedBox(height: Insets.md),
-          const Text(
+          Text(
             'Trade Smarter\nwith AI Analysis',
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+              color: AppTheme.textPrimary(context),
               height: 1.2,
             ),
           ),
           const SizedBox(height: Insets.sm),
-          const Text(
+          Text(
             'Upload any chart — Crypto, Forex, or Stocks — and get\ninstant AI-powered technical analysis.',
             style: TextStyle(
               fontSize: 13,
-              color: AppColors.textSecondary,
+              color: AppTheme.textSecondary(context),
               height: 1.5,
             ),
           ),
@@ -218,7 +238,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             children: [
               _StatChip(label: 'Patterns', icon: Icons.pattern),
               const SizedBox(width: 8),
-              _StatChip(label: 'Levels', icon: Icons.horizontal_rule_rounded),
+              _StatChip(
+                  label: 'Levels',
+                  icon: Icons.horizontal_rule_rounded),
               const SizedBox(width: 8),
               _StatChip(label: 'Signals', icon: Icons.bolt_rounded),
             ],
@@ -228,25 +250,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildUploadSection() {
+  Widget _buildUploadSection(BuildContext context) {
+    final gold = AppTheme.gold(context);
+    final cardColor = AppTheme.cardColor(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionHeader(title: 'Analyze a Chart'),
         const SizedBox(height: Insets.md),
-        // Gallery upload — large dashed tap area
         GestureDetector(
           onTap: () => _pickImage(ImageSource.gallery),
           child: Container(
             width: double.infinity,
             height: 140,
             decoration: BoxDecoration(
-              color: AppColors.card,
+              color: cardColor,
               borderRadius: BorderRadius.circular(Radii.xl),
               border: Border.all(
-                color: AppColors.gold.withOpacity(0.3),
+                color: gold.withOpacity(0.3),
                 width: 1.5,
-                // dashed effect approximated via style
               ),
             ),
             child: Column(
@@ -256,36 +279,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.gold.withOpacity(0.1),
+                    color: gold.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.add_photo_alternate_outlined,
-                      color: AppColors.gold, size: 24),
+                  child: Icon(Icons.add_photo_alternate_outlined,
+                      color: gold, size: 24),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Upload Chart from Gallery',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
+                    color: AppTheme.textPrimary(context),
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'PNG, JPG supported',
-                  style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textMuted(context)),
                 ),
               ],
             ),
           ),
         ),
         const SizedBox(height: Insets.sm),
-        // Camera button
         GradientButton(
           label: 'Capture from Camera',
-          icon: const Icon(Icons.camera_alt_outlined,
-              color: AppColors.bg, size: 18),
+          icon: Icon(Icons.camera_alt_outlined,
+              color: AppTheme.bgColor(context), size: 18),
           onTap: () => _pickImage(ImageSource.camera),
           height: 50,
         ),
@@ -293,7 +317,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildQuickActionsSection() {
+  Widget _buildQuickActionsSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -305,7 +329,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: _ActionCard(
                 icon: Icons.candlestick_chart_rounded,
                 label: 'Live Crypto\nCharts',
-                color: AppColors.emerald,
+                color: AppTheme.emerald(context),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                       builder: (_) => const LiveChartScreen()),
@@ -317,7 +341,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: _ActionCard(
                 icon: Icons.history_rounded,
                 label: 'Analysis\nHistory',
-                color: AppColors.blue,
+                color: AppTheme.blue(context),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                       builder: (_) => const HistoryScreen()),
@@ -339,21 +363,25 @@ class _StatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.neutral,
+        color: AppTheme.neutral(context),
         borderRadius: BorderRadius.circular(Radii.full),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 11, color: AppColors.textSecondary),
+          Icon(icon, size: 11, color: AppTheme.textSecondary(context)),
           const SizedBox(width: 4),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: AppTheme.textSecondary(context),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
@@ -380,9 +408,9 @@ class _ActionCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(Insets.md),
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: AppTheme.cardColor(context),
           borderRadius: BorderRadius.circular(Radii.lg),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: AppTheme.borderColor(context)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,10 +427,10 @@ class _ActionCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: AppTheme.textPrimary(context),
                 height: 1.3,
               ),
             ),
