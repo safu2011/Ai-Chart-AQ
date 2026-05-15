@@ -6,6 +6,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/history_repository.dart';
 import '../../../widgets/shared_widgets.dart';
+import '../../paywall/paywall_screen.dart';
 import '../../providers.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -22,6 +23,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadInfo();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SubscriptionProvider>().refresh();
+    });
   }
 
   Future<void> _loadInfo() async {
@@ -31,17 +35,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = context.watch<ThemeProvider>().isDark;
-    final bgColor = AppTheme.bgColor(context);
-    final cardColor = AppTheme.cardColor(context);
-    final borderColor = AppTheme.borderColor(context);
-    final textPrimary = AppTheme.textPrimary(context);
+    final isDark        = context.watch<ThemeProvider>().isDark;
+    final subProv       = context.watch<SubscriptionProvider>();
+    final bgColor       = AppTheme.bgColor(context);
+    final cardColor     = AppTheme.cardColor(context);
+    final borderColor   = AppTheme.borderColor(context);
+    final textPrimary   = AppTheme.textPrimary(context);
     final textSecondary = AppTheme.textSecondary(context);
-    final textMuted = AppTheme.textMuted(context);
-    final gold = AppTheme.gold(context);
-    final neutral = AppTheme.neutral(context);
-    final goldSoft = isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft;
-    final red = AppTheme.red(context);
+    final textMuted     = AppTheme.textMuted(context);
+    final gold          = AppTheme.gold(context);
+    final goldSoft      = isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft;
+    final red           = AppTheme.red(context);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -49,6 +53,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(Insets.md),
         children: [
+
+          // ── Subscription ─────────────────────────────────────────────────
+          _SectionHeader(title: 'Subscription', textMuted: textMuted),
+          const SizedBox(height: Insets.sm),
+          _buildSubscriptionCard(context, subProv, gold, goldSoft, isDark,
+              cardColor, borderColor, textPrimary, textSecondary, textMuted),
+
+          const SizedBox(height: Insets.lg),
+
+          // ── Appearance ───────────────────────────────────────────────────
           _SectionHeader(title: 'Appearance', textMuted: textMuted),
           const SizedBox(height: Insets.sm),
           _SettingsTile(
@@ -67,7 +81,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               thumbColor: WidgetStateProperty.all(Colors.white),
             ),
           ),
+
           const SizedBox(height: Insets.lg),
+
+          // ── Data ─────────────────────────────────────────────────────────
           _SectionHeader(title: 'Data', textMuted: textMuted),
           const SizedBox(height: Insets.sm),
           _SettingsTile(
@@ -81,7 +98,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             textMuted: textMuted,
             onTap: () => _clearHistory(context),
           ),
+
           const SizedBox(height: Insets.lg),
+
+          // ── About ─────────────────────────────────────────────────────────
           _SectionHeader(title: 'About', textMuted: textMuted),
           const SizedBox(height: Insets.sm),
           Container(
@@ -97,34 +117,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Row(
                   children: [
                     Container(
-                      width: 40,
-                      height: 40,
+                      width: 40, height: 40,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(colors: [gold, goldSoft]),
                         borderRadius: BorderRadius.circular(Radii.sm),
                       ),
-                      child: Icon(
-                        Icons.candlestick_chart_rounded,
-                        color: isDark ? AppColorsDark.bg : AppColorsLight.bg,
-                        size: 20,
-                      ),
+                      child: Icon(Icons.candlestick_chart_rounded,
+                          color: isDark ? AppColorsDark.bg : AppColorsLight.bg, size: 20),
                     ),
                     const SizedBox(width: 12),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          AppConstants.appName,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: textPrimary,
-                          ),
-                        ),
-                        Text(
-                          'Version $_version',
-                          style: TextStyle(fontSize: 11, color: textMuted),
-                        ),
+                        Text(AppConstants.appName,
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textPrimary)),
+                        Text('Version $_version',
+                            style: TextStyle(fontSize: 11, color: textMuted)),
                       ],
                     ),
                   ],
@@ -132,24 +140,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: Insets.md),
                 Divider(color: borderColor),
                 const SizedBox(height: Insets.sm),
-                Text(
-                  'DISCLAIMER',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: textMuted,
-                    letterSpacing: 1,
-                  ),
-                ),
+                Text('DISCLAIMER',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: textMuted, letterSpacing: 1)),
                 const SizedBox(height: 6),
-                Text(
-                  AppConstants.disclaimer,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: textSecondary,
-                    height: 1.6,
-                  ),
-                ),
+                Text(AppConstants.disclaimer,
+                    style: TextStyle(fontSize: 12, color: textSecondary, height: 1.6)),
               ],
             ),
           ),
@@ -159,29 +154,176 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ── Subscription Card ─────────────────────────────────────────────────────
+
+  Widget _buildSubscriptionCard(
+    BuildContext context,
+    SubscriptionProvider subProv,
+    Color gold, Color goldSoft, bool isDark,
+    Color cardColor, Color borderColor,
+    Color textPrimary, Color textSecondary, Color textMuted,
+  ) {
+    if (subProv.isPro) {
+      return Container(
+        padding: const EdgeInsets.all(Insets.md),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [gold.withOpacity(0.15), gold.withOpacity(0.04)],
+          ),
+          borderRadius: BorderRadius.circular(Radii.lg),
+          border: Border.all(color: gold.withOpacity(0.35)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [gold, goldSoft]),
+                borderRadius: BorderRadius.circular(Radii.md),
+              ),
+              child: Icon(Icons.workspace_premium_rounded,
+                  color: isDark ? AppColorsDark.bg : Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Pro Subscriber',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: textPrimary)),
+                  Text('Unlimited analyses • Ad-free',
+                      style: TextStyle(fontSize: 11, color: textSecondary)),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: gold.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(Radii.full),
+              ),
+              child: Text('ACTIVE',
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: gold, letterSpacing: 1)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Free user — show credit balance + upgrade CTA
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(Insets.md),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(Radii.lg),
+            border: Border.all(color: borderColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: gold.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(Radii.sm),
+                    ),
+                    child: Icon(Icons.bolt_rounded, color: gold, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Free Plan',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: textPrimary)),
+                        Text('${subProv.freeRemaining} free today • ${subProv.paidCredits} paid credits',
+                            style: TextStyle(fontSize: 11, color: textSecondary)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Usage bar
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Free daily analyses used',
+                          style: TextStyle(fontSize: 10, color: textMuted)),
+                      Text('${AppConstants.freeAnalysesPerDay - subProv.freeRemaining}/${AppConstants.freeAnalysesPerDay}',
+                          style: TextStyle(fontSize: 10, color: textMuted)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: (AppConstants.freeAnalysesPerDay - subProv.freeRemaining) /
+                          AppConstants.freeAnalysesPerDay,
+                      minHeight: 6,
+                      backgroundColor: AppTheme.neutral(context),
+                      valueColor: AlwaysStoppedAnimation(gold),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              GradientButton(
+                label: 'Upgrade to Pro',
+                icon: Icon(Icons.workspace_premium_rounded,
+                    color: isDark ? AppColorsDark.bg : AppColorsLight.bg, size: 16),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                ),
+                height: 44,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: Insets.sm),
+        _SettingsTile(
+          icon: Icons.restore_rounded,
+          title: 'Restore Purchases',
+          subtitle: 'Recover your Pro subscription',
+          iconColor: AppTheme.blue(context),
+          cardColor: cardColor,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textMuted: textMuted,
+          onTap: () => _restorePurchases(context, subProv),
+        ),
+      ],
+    );
+  }
+
+  // ── Actions ───────────────────────────────────────────────────────────────
+
   Future<void> _clearHistory(BuildContext context) async {
-    final isDark = context.read<ThemeProvider>().isDark;
+    final isDark    = context.read<ThemeProvider>().isDark;
     final cardColor = AppTheme.cardColor(context);
-    final textPrimary = AppTheme.textPrimary(context);
-    final textSecondary = AppTheme.textSecondary(context);
-    final red = AppTheme.red(context);
+    final tp        = AppTheme.textPrimary(context);
+    final ts        = AppTheme.textSecondary(context);
+    final red       = AppTheme.red(context);
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: cardColor,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(Radii.lg)),
-        title: Text('Clear All History?',
-            style: TextStyle(color: textPrimary, fontSize: 16)),
-        content: Text(
-          'All saved analyses will be permanently deleted.',
-          style: TextStyle(color: textSecondary, fontSize: 13),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.lg)),
+        title: Text('Clear All History?', style: TextStyle(color: tp, fontSize: 16)),
+        content: Text('All saved analyses will be permanently deleted.',
+            style: TextStyle(color: ts, fontSize: 13)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: textSecondary)),
+            child: Text('Cancel', style: TextStyle(color: ts)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -196,22 +338,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'History cleared',
-              style: TextStyle(
-                  color: isDark
-                      ? AppColorsDark.textPrimary
-                      : AppColorsLight.textPrimary),
-            ),
-            backgroundColor: isDark
-                ? AppColorsDark.cardElevated
-                : AppColorsLight.cardElevated,
+            content: Text('History cleared',
+                style: TextStyle(
+                    color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary)),
+            backgroundColor: isDark ? AppColorsDark.cardElevated : AppColorsLight.cardElevated,
           ),
         );
       }
     }
   }
+
+  Future<void> _restorePurchases(BuildContext context, SubscriptionProvider subProv) async {
+    try {
+      await subProv.restorePurchases();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(subProv.isPro
+                ? 'Pro subscription restored! ✓'
+                : 'No previous purchases found.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Restore failed: ${e.toString()}')),
+        );
+      }
+    }
+  }
 }
+
+// ── Sub Widgets ───────────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
   final String title;
@@ -222,12 +381,7 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       title.toUpperCase(),
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: textMuted,
-        letterSpacing: 1,
-      ),
+      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textMuted, letterSpacing: 1),
     );
   }
 }
@@ -272,8 +426,7 @@ class _SettingsTile extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 36, height: 36,
               decoration: BoxDecoration(
                 color: accent.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(Radii.sm),
@@ -286,12 +439,8 @@ class _SettingsTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: textPrimary)),
-                  Text(subtitle,
-                      style: TextStyle(fontSize: 11, color: textMuted)),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
+                  Text(subtitle, style: TextStyle(fontSize: 11, color: textMuted)),
                 ],
               ),
             ),

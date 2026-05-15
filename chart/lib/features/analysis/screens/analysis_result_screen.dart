@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/chart_analysis.dart';
+import '../../../services/credits_service.dart';
 import '../../../widgets/shared_widgets.dart';
 import '../../providers.dart';
 
@@ -24,11 +25,20 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final analysisProvider = context.read<AnalysisProvider>();
-      if (analysisProvider.state is AnalysisIdle) {
-        analysisProvider.analyze(widget.imageFile);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final analysisProv = context.read<AnalysisProvider>();
+      if (analysisProv.state is! AnalysisIdle) return;
+
+      // Consume a credit before running
+      final subProv = context.read<SubscriptionProvider>();
+      final result = await subProv.consumeCredit();
+
+      if (result == CreditConsumeResult.noCredits) {
+        if (mounted) Navigator.of(context).pop();
+        return;
       }
+
+      analysisProv.analyze(widget.imageFile);
     });
   }
 
@@ -79,26 +89,17 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
             child: Row(
               children: [
                 const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.gold,
-                  ),
+                  width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold),
                 ),
                 const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Analyzing your chart...',
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary)),
-                    const SizedBox(height: 2),
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                     Text('GPT-4o Vision is reading patterns & levels',
-                        style: TextStyle(
-                            fontSize: 12, color: AppColors.textSecondary)),
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                   ],
                 ),
               ],
@@ -120,41 +121,37 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 72,
-              height: 72,
+              width: 72, height: 72,
               decoration: BoxDecoration(
-                color: AppColors.red.withOpacity(0.1),
-                shape: BoxShape.circle,
+                color: AppColors.red.withOpacity(0.1), shape: BoxShape.circle,
                 border: Border.all(color: AppColors.red.withOpacity(0.3)),
               ),
-              child: const Icon(Icons.error_outline_rounded,
-                  color: AppColors.red, size: 34),
+              child: const Icon(Icons.error_outline_rounded, color: AppColors.red, size: 34),
             ),
             const SizedBox(height: Insets.md),
             const Text('Analysis Failed',
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary)),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
             const SizedBox(height: 8),
             Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                    height: 1.5)),
+                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.5)),
             const SizedBox(height: Insets.lg),
             GradientButton(
               label: 'Try Again',
-              onTap: () =>
-                  context.read<AnalysisProvider>().analyze(widget.imageFile),
+              onTap: () async {
+                // Consume another credit for retry
+                final subProv = context.read<SubscriptionProvider>();
+                final result = await subProv.consumeCredit();
+                if (result != CreditConsumeResult.noCredits && mounted) {
+                  context.read<AnalysisProvider>().analyze(widget.imageFile);
+                }
+              },
               width: 160,
             ),
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Go Back',
-                  style: TextStyle(color: AppColors.textSecondary)),
+              child: const Text('Go Back', style: TextStyle(color: AppColors.textSecondary)),
             ),
           ],
         ),
@@ -173,40 +170,20 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
           const SizedBox(height: Insets.md),
           _buildSentimentMetrics(result),
           const SizedBox(height: Insets.md),
-          _buildMarkdownCard(
-            icon: Icons.summarize_outlined,
-            title: 'Overall Summary',
-            color: AppColors.blue,
-            content: result.summary,
-          ),
+          _buildMarkdownCard(icon: Icons.summarize_outlined, title: 'Overall Summary',
+              color: AppColors.blue, content: result.summary),
           const SizedBox(height: Insets.sm),
-          _buildMarkdownCard(
-            icon: Icons.layers_outlined,
-            title: 'Key Levels',
-            color: AppColors.gold,
-            content: result.keyLevels,
-          ),
+          _buildMarkdownCard(icon: Icons.layers_outlined, title: 'Key Levels',
+              color: AppColors.gold, content: result.keyLevels),
           const SizedBox(height: Insets.sm),
-          _buildMarkdownCard(
-            icon: Icons.swap_horiz_rounded,
-            title: 'Trade Scenario',
-            color: AppColors.emerald,
-            content: result.tradeScenario,
-          ),
+          _buildMarkdownCard(icon: Icons.swap_horiz_rounded, title: 'Trade Scenario',
+              color: AppColors.emerald, content: result.tradeScenario),
           const SizedBox(height: Insets.sm),
-          _buildMarkdownCard(
-            icon: Icons.warning_amber_rounded,
-            title: 'Risk Analysis',
-            color: AppColors.red,
-            content: result.riskAnalysis,
-          ),
+          _buildMarkdownCard(icon: Icons.warning_amber_rounded, title: 'Risk Analysis',
+              color: AppColors.red, content: result.riskAnalysis),
           const SizedBox(height: Insets.sm),
-          _buildMarkdownCard(
-            icon: Icons.notes_rounded,
-            title: 'Final Notes',
-            color: AppColors.textSecondary,
-            content: result.finalNotes,
-          ),
+          _buildMarkdownCard(icon: Icons.notes_rounded, title: 'Final Notes',
+              color: AppColors.textSecondary, content: result.finalNotes),
           const SizedBox(height: Insets.md),
           _buildActions(result),
           const SizedBox(height: Insets.md),
@@ -224,12 +201,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(Radii.md),
-            child: Image.file(
-              widget.imageFile,
-              width: 70,
-              height: 70,
-              fit: BoxFit.cover,
-            ),
+            child: Image.file(widget.imageFile, width: 70, height: 70, fit: BoxFit.cover),
           ),
           const SizedBox(width: Insets.md),
           Expanded(
@@ -239,17 +211,13 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: AppColors.neutral,
                         borderRadius: BorderRadius.circular(Radii.full),
                       ),
                       child: Text(result.assetType,
-                          style: const TextStyle(
-                              fontSize: 10,
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w600)),
+                          style: const TextStyle(fontSize: 10, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(width: 6),
                     SentimentBadge(sentiment: result.sentiment),
@@ -257,16 +225,10 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(result.pair,
-                    style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary)),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                 const SizedBox(height: 2),
-                Text(
-                  _formatDate(result.timestamp),
-                  style: const TextStyle(
-                      fontSize: 11, color: AppColors.textMuted),
-                ),
+                Text(_formatDate(result.timestamp),
+                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
               ],
             ),
           ),
@@ -276,21 +238,14 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
   }
 
   Widget _buildSentimentMetrics(ChartAnalysis result) {
-    final sentimentPct =
-        '${(result.sentimentScore * 100).toStringAsFixed(0)}%';
-    final volPct = '${(result.volumeScore * 100).toStringAsFixed(0)}%';
     return Row(
       children: [
         Expanded(
           child: _MetricCard(
             label: 'Sentiment',
-            value: sentimentPct,
+            value: '${(result.sentimentScore * 100).toStringAsFixed(0)}%',
             progress: result.sentimentScore,
-            color: result.isBullish
-                ? AppColors.emerald
-                : result.isBearish
-                    ? AppColors.red
-                    : AppColors.gold,
+            color: result.isBullish ? AppColors.emerald : result.isBearish ? AppColors.red : AppColors.gold,
           ),
         ),
         const SizedBox(width: Insets.sm),
@@ -306,12 +261,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
     );
   }
 
-  Widget _buildMarkdownCard({
-    required IconData icon,
-    required String title,
-    required Color color,
-    required String content,
-  }) {
+  Widget _buildMarkdownCard({required IconData icon, required String title, required Color color, required String content}) {
     if (content.trim().isEmpty) return const SizedBox.shrink();
     return GlassCard(
       padding: const EdgeInsets.all(Insets.md),
@@ -321,8 +271,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
           Row(
             children: [
               Container(
-                width: 28,
-                height: 28,
+                width: 28, height: 28,
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(Radii.sm),
@@ -330,11 +279,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                 child: Icon(icon, color: color, size: 14),
               ),
               const SizedBox(width: 8),
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary)),
+              Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
             ],
           ),
           const SizedBox(height: Insets.sm),
@@ -345,11 +290,9 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
               data: content,
               styleSheet: MarkdownStyleSheet(
                 p: TextStyle(fontSize: 13, color: ts, height: 1.6),
-                strong: TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w700, color: tp),
+                strong: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: tp),
                 listBullet: TextStyle(fontSize: 13, color: ts),
-                h3: TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w700, color: tp),
+                h3: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: tp),
               ),
             );
           }),
@@ -368,10 +311,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
             onTap: () {
               Clipboard.setData(ClipboardData(text: result.rawMarkdown));
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Analysis copied to clipboard'),
-                  backgroundColor: AppColors.card,
-                ),
+                const SnackBar(content: Text('Analysis copied to clipboard'), backgroundColor: AppColors.card),
               );
             },
           ),
@@ -389,16 +329,10 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
   }
 
   void _share(ChartAnalysis result) {
-    final text = '''
-${AppConstants.appName} — AI Chart Analysis
-${result.pair} | ${result.assetType} | ${result.sentiment}
-Generated: ${_formatDate(result.timestamp)}
-
-${result.rawMarkdown}
-
----
-${AppConstants.disclaimer}
-''';
+    final text = '${AppConstants.appName} — AI Chart Analysis\n'
+        '${result.pair} | ${result.assetType} | ${result.sentiment}\n'
+        'Generated: ${_formatDate(result.timestamp)}\n\n'
+        '${result.rawMarkdown}\n\n---\n${AppConstants.disclaimer}';
     Share.share(text, subject: '${result.pair} Chart Analysis');
   }
 
@@ -413,26 +347,19 @@ ${AppConstants.disclaimer}
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.warning_amber_rounded,
-              size: 14, color: AppColors.red),
+          const Icon(Icons.warning_amber_rounded, size: 14, color: AppColors.red),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(
-              AppConstants.disclaimer,
-              style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
-                  height: 1.5),
-            ),
+            child: Text(AppConstants.disclaimer,
+                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.5)),
           ),
         ],
       ),
     );
   }
 
-  String _formatDate(DateTime dt) {
-    return '${dt.day}/${dt.month}/${dt.year}  ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  }
+  String _formatDate(DateTime dt) =>
+      '${dt.day}/${dt.month}/${dt.year}  ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 }
 
 class _MetricCard extends StatelessWidget {
@@ -441,12 +368,7 @@ class _MetricCard extends StatelessWidget {
   final double progress;
   final Color color;
 
-  const _MetricCard({
-    required this.label,
-    required this.value,
-    required this.progress,
-    required this.color,
-  });
+  const _MetricCard({required this.label, required this.value, required this.progress, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -455,19 +377,14 @@ class _MetricCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style:
-                  const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+          Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
           const SizedBox(height: 4),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+          Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
-              minHeight: 4,
+              value: progress.clamp(0.0, 1.0), minHeight: 4,
               backgroundColor: AppColors.neutral,
               valueColor: AlwaysStoppedAnimation(color),
             ),
@@ -483,8 +400,7 @@ class _ActionBtn extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _ActionBtn(
-      {required this.icon, required this.label, required this.onTap});
+  const _ActionBtn({required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -502,11 +418,7 @@ class _ActionBtn extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: AppColors.textSecondary),
             const SizedBox(width: 6),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary)),
+            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
           ],
         ),
       ),

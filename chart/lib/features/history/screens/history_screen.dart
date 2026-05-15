@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/chart_analysis.dart';
 import '../../../widgets/shared_widgets.dart';
 import '../../providers.dart';
+import '../../../services/ad_service.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -43,7 +44,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
         ],
       ),
-      body: _buildBody(context, historyProv),
+      body: Column(
+        children: [
+          // Banner ad for free users
+          if (!context.watch<SubscriptionProvider>().isPro)
+            Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              color: AppTheme.bgColor(context),
+              child: const AdBannerWidget(),
+            ),
+          Expanded(child: _buildBody(context, historyProv)),
+        ],
+      ),
     );
   }
 

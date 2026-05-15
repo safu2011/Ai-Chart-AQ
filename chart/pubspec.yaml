@@ -25,7 +25,7 @@ dependencies:
   path_provider: ^2.1.4
   path: ^1.9.0
 
-  # Charts — latest published version is 2.1.0
+  # Charts
   candlesticks: ^2.1.0
 
   # UI
@@ -36,7 +36,18 @@ dependencies:
   package_info_plus: ^8.1.2
   permission_handler: ^11.3.1
 
-  # Env / config — removed: API key is now a compile-time constant in AppConstants
+  # ── Monetization ─────────────────────────────────────────────────────────────
+  # IAP / Subscriptions
+  purchases_flutter: ^8.0.0          # RevenueCat SDK
+
+  # Ads
+  google_mobile_ads: ^5.1.0          # AdMob
+
+  # Notifications (price alerts)
+  flutter_local_notifications: ^17.2.4
+
+  # Timezone support for scheduled notifications
+  timezone: ^0.9.4
 
 dev_dependencies:
   flutter_test:

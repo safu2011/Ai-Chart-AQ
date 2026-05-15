@@ -1,12 +1,18 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/constants/app_constants.dart';
 import '../models/chart_analysis.dart';
+import '../models/price_alert.dart';
+import '../services/alerts_service.dart';
 import '../services/binance_service.dart';
+import '../services/credits_service.dart';
 import '../services/history_repository.dart';
 import '../services/openai_service.dart';
+import '../services/subscription_service.dart';
 
 // ─── Theme Provider ───────────────────────────────────────────────────────────
 
@@ -238,5 +244,149 @@ class LiveChartProvider extends ChangeNotifier {
       _tickerState = LoadState.error;
     }
     notifyListeners();
+  }
+}
+
+// ─── Subscription / Credits Provider ─────────────────────────────────────────
+
+class SubscriptionProvider extends ChangeNotifier {
+  bool _isPro = false;
+  int _paidCredits = 0;
+  int _freeRemaining = AppConstants.freeAnalysesPerDay;
+  bool _isLoading = false;
+  Offerings? _offerings;
+
+  bool get isPro => _isPro;
+  int get paidCredits => _paidCredits;
+  int get freeRemaining => _freeRemaining;
+  bool get isLoading => _isLoading;
+  Offerings? get offerings => _offerings;
+  int get totalAvailable => _isPro ? 999 : _freeRemaining + _paidCredits;
+
+  Future<void> refresh() async {
+    _isLoading = true;
+    notifyListeners();
+    _isPro = await SubscriptionService.instance.isPro();
+    _paidCredits = await CreditsService.instance.getPaidCredits();
+    _freeRemaining = await CreditsService.instance.getFreeRemaining();
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> loadOfferings() async {
+    _offerings = await SubscriptionService.instance.fetchOfferings();
+    notifyListeners();
+  }
+
+  Future<bool> canAnalyze() async {
+    return CreditsService.instance.canAnalyze(isPro: _isPro);
+  }
+
+  Future<CreditConsumeResult> consumeCredit() async {
+    final result = await CreditsService.instance.consume(isPro: _isPro);
+    _paidCredits = await CreditsService.instance.getPaidCredits();
+    _freeRemaining = await CreditsService.instance.getFreeRemaining();
+    notifyListeners();
+    return result;
+  }
+
+  Future<void> purchasePackage(Package package) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final info = await SubscriptionService.instance.purchase(package);
+      _isPro = info.entitlements.active.containsKey(AppConstants.rcProEntitlement);
+
+      final productId = package.storeProduct.identifier;
+      if (productId == AppConstants.rcPack10Id) {
+        await CreditsService.instance.addPaidCredits(AppConstants.creditsInPack10);
+      } else if (productId == AppConstants.rcPack50Id) {
+        await CreditsService.instance.addPaidCredits(AppConstants.creditsInPack50);
+      } else if (productId == AppConstants.rcPack200Id) {
+        await CreditsService.instance.addPaidCredits(AppConstants.creditsInPack200);
+      }
+      await refresh();
+    } catch (e) {
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> restorePurchases() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final info = await SubscriptionService.instance.restore();
+      _isPro = info.entitlements.active.containsKey(AppConstants.rcProEntitlement);
+      await refresh();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+}
+
+// ─── Alerts Provider ──────────────────────────────────────────────────────────
+
+class AlertsProvider extends ChangeNotifier {
+  List<PriceAlert> _alerts = [];
+  bool _isLoading = false;
+  String _error = '';
+  DateTime? _lastChecked;
+
+  List<PriceAlert> get alerts => _alerts;
+  List<PriceAlert> get activeAlerts =>
+      _alerts.where((a) => a.isActive).toList();
+  List<PriceAlert> get triggeredAlerts =>
+      _alerts.where((a) => !a.isActive && a.triggeredAt != null).toList();
+  bool get isLoading => _isLoading;
+  String get error => _error;
+  DateTime? get lastChecked => _lastChecked;
+  int get activeCount => activeAlerts.length;
+
+  Future<void> load() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      _alerts = await AlertsService.instance.loadAll();
+      _error = '';
+    } catch (e) {
+      _error = e.toString();
+    }
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> addAlert({
+    required String pair,
+    required double targetPrice,
+    required AlertCondition condition,
+  }) async {
+    final alert = PriceAlert.create(
+      pair: pair,
+      targetPrice: targetPrice,
+      condition: condition,
+    );
+    await AlertsService.instance.add(alert);
+    await load();
+  }
+
+  Future<void> deleteAlert(String id) async {
+    await AlertsService.instance.delete(id);
+    _alerts = _alerts.where((a) => a.id != id).toList();
+    notifyListeners();
+  }
+
+  Future<void> toggleAlert(String id) async {
+    await AlertsService.instance.toggle(id);
+    await load();
+  }
+
+  Future<void> checkAlerts() async {
+    await AlertsService.instance.checkAlerts();
+    _lastChecked = DateTime.now();
+    await load();
   }
 }
