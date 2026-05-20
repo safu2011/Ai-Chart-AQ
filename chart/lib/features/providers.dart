@@ -263,6 +263,10 @@ class SubscriptionProvider extends ChangeNotifier {
   Offerings? get offerings => _offerings;
   int get totalAvailable => _isPro ? 999 : _freeRemaining + _paidCredits;
 
+  void setIsPro(bool value){
+    _isPro = value;
+  }
+
   Future<void> refresh() async {
     _isLoading = true;
     notifyListeners();

@@ -80,6 +80,7 @@ class _HomeScreenState extends State<HomeScreen>
     final bgColor     = AppTheme.bgColor(context);
     final borderColor = AppTheme.borderColor(context);
     final textSecondary = AppTheme.textSecondary(context);
+    // context.watch<SubscriptionProvider>().setIsPro(true);
 
     return Scaffold(
       backgroundColor: bgColor,
