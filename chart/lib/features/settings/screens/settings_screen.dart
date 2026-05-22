@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/history_repository.dart';
 import '../../../widgets/shared_widgets.dart';
+import '../../onboarding/user_guide_overlay.dart';
 import '../../paywall/paywall_screen.dart';
 import '../../providers.dart';
 
@@ -86,6 +88,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // ── Data ─────────────────────────────────────────────────────────
           _SectionHeader(title: 'Data', textMuted: textMuted),
+          const SizedBox(height: Insets.sm),
+          _SettingsTile(
+            icon: Icons.help_outline_rounded,
+            title: 'View App Guide',
+            subtitle: 'See how to analyse charts with AI',
+            iconColor: gold,
+            cardColor: cardColor,
+            borderColor: borderColor,
+            textPrimary: textPrimary,
+            textMuted: textMuted,
+            onTap: () => _showGuide(context),
+          ),
           const SizedBox(height: Insets.sm),
           _SettingsTile(
             icon: Icons.delete_outline_rounded,
@@ -305,6 +319,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
+  Future<void> _showGuide(BuildContext context) async {
+    // Reset guide shown flag so it re-shows on next navigation
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('guide_shown', false);
+    if (!mounted) return;
+    Navigator.of(context).pop(); // Close settings
+    // The splash → home flow will show guide since guide_shown is reset.
+    // For a direct in-place show, push a modal overlay instead:
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.transparent,
+      builder: (_) => _InlineGuideDialog(onDone: () {
+        SharedPreferences.getInstance()
+            .then((p) => p.setBool('guide_shown', true));
+      }),
+    );
+  }
+
   Future<void> _clearHistory(BuildContext context) async {
     final isDark    = context.read<ThemeProvider>().isDark;
     final cardColor = AppTheme.cardColor(context);
@@ -452,4 +485,254 @@ class _SettingsTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Simple full-screen dialog that shows the user guide
+class _InlineGuideDialog extends StatelessWidget {
+  final VoidCallback onDone;
+  const _InlineGuideDialog({required this.onDone});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.transparent,
+      child: _UserGuideOverlayStandalone(onDismiss: () {
+        onDone();
+        Navigator.of(context).pop();
+      }),
+    );
+  }
+}
+
+/// Standalone version of the user guide overlay (without needing HomeScreen behind it)
+class _UserGuideOverlayStandalone extends StatefulWidget {
+  final VoidCallback onDismiss;
+  const _UserGuideOverlayStandalone({required this.onDismiss});
+
+  @override
+  State<_UserGuideOverlayStandalone> createState() =>
+      _UserGuideOverlayStandaloneState();
+}
+
+class _UserGuideOverlayStandaloneState
+    extends State<_UserGuideOverlayStandalone>
+    with TickerProviderStateMixin {
+  int _step = 0;
+
+  late AnimationController _slideCtrl;
+  late Animation<Offset> _slideAnim;
+  late Animation<double> _slideFade;
+
+  late AnimationController _arrowCtrl;
+  late Animation<Offset> _arrowAnim;
+
+  static const _steps = [
+    _GuideInfo(
+      title: 'Upload a Chart Image',
+      description:
+          'Tap "Upload Chart from Gallery" to pick any crypto, forex, or stock chart image from your gallery. PNG and JPG files are supported.',
+      icon: Icons.add_photo_alternate_outlined,
+    ),
+    _GuideInfo(
+      title: 'Or Capture Live',
+      description:
+          'Tap "Capture from Camera" to photograph a chart from your screen, then analyze it instantly with AI.',
+      icon: Icons.camera_alt_outlined,
+    ),
+    _GuideInfo(
+      title: 'Browse All Crypto Pairs',
+      description:
+          'In Live Crypto Charts, all USDT pairs from Binance are available. Search any coin by symbol — BTC, SOL, PEPE, and many more.',
+      icon: Icons.candlestick_chart_rounded,
+    ),
+    _GuideInfo(
+      title: 'Analyze Any Chart',
+      description:
+          'On any live chart, tap "Analyze Chart" to run GPT-4o Vision analysis. Results are saved to Analysis History automatically.',
+      icon: Icons.auto_awesome_rounded,
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _slideCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 400));
+    _slideAnim =
+        Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero).animate(
+            CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOutCubic));
+    _slideFade = CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOut);
+    _slideCtrl.forward();
+
+    _arrowCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 700))
+      ..repeat(reverse: true);
+    _arrowAnim =
+        Tween<Offset>(begin: Offset.zero, end: const Offset(0, 0.3)).animate(
+            CurvedAnimation(parent: _arrowCtrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _slideCtrl.dispose();
+    _arrowCtrl.dispose();
+    super.dispose();
+  }
+
+  void _next() {
+    if (_step < _steps.length - 1) {
+      _slideCtrl.reset();
+      setState(() => _step++);
+      _slideCtrl.forward();
+    } else {
+      widget.onDismiss();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = context.watch<ThemeProvider>().isDark;
+    final gold = isDark ? AppColorsDark.gold : AppColorsLight.gold;
+    final goldSoft = isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft;
+    final bg = isDark ? AppColorsDark.bg : AppColorsLight.bg;
+    final card = isDark ? AppColorsDark.card : AppColorsLight.card;
+    final textPrimary =
+        isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary;
+    final textSecondary =
+        isDark ? AppColorsDark.textSecondary : AppColorsLight.textSecondary;
+    final step = _steps[_step];
+
+    return Stack(
+      children: [
+        Positioned.fill(child: Container(color: Colors.black.withOpacity(0.8))),
+        Center(
+          child: SlideTransition(
+            position: _arrowAnim,
+            child: Icon(Icons.touch_app_rounded, color: gold, size: 64),
+          ),
+        ),
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: 60,
+          child: SlideTransition(
+            position: _slideAnim,
+            child: FadeTransition(
+              opacity: _slideFade,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: card,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: gold.withOpacity(0.25)),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.4),
+                        blurRadius: 40,
+                        offset: const Offset(0, 10))
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            gradient:
+                                LinearGradient(colors: [gold, goldSoft]),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(step.icon, color: bg, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            step.title,
+                            style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: textPrimary),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: widget.onDismiss,
+                          child: Text('Close',
+                              style: TextStyle(
+                                  fontSize: 13, color: textSecondary)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(step.description,
+                        style: TextStyle(
+                            fontSize: 14, color: textSecondary, height: 1.55)),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Row(
+                          children: List.generate(
+                            _steps.length,
+                            (i) => AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              width: i == _step ? 20 : 6,
+                              height: 6,
+                              margin: const EdgeInsets.only(right: 4),
+                              decoration: BoxDecoration(
+                                color: i == _step
+                                    ? gold
+                                    : gold.withOpacity(0.25),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: _next,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
+                            decoration: BoxDecoration(
+                              gradient:
+                                  LinearGradient(colors: [gold, goldSoft]),
+                              borderRadius: BorderRadius.circular(50),
+                              boxShadow: [
+                                BoxShadow(
+                                    color: gold.withOpacity(0.4),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 4))
+                              ],
+                            ),
+                            child: Text(
+                              _step == _steps.length - 1 ? 'Done' : 'Next',
+                              style: TextStyle(
+                                  color: bg,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GuideInfo {
+  final String title;
+  final String description;
+  final IconData icon;
+  const _GuideInfo(
+      {required this.title, required this.description, required this.icon});
 }

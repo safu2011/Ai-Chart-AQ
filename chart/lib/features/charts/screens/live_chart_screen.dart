@@ -39,9 +39,9 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
       return;
     }
     final q = query.toUpperCase();
+    final allPairs = context.read<LiveChartProvider>().allPairs;
     setState(() {
-      _searchResults =
-          AppConstants.cryptoPairs.where((p) => p.contains(q)).toList();
+      _searchResults = allPairs.where((p) => p.contains(q)).toList();
     });
   }
 
@@ -411,6 +411,10 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
   }
 
   Widget _buildPairLists(List<String> favorites, List<String> recents) {
+    final liveChart = context.watch<LiveChartProvider>();
+    final allPairs = liveChart.allPairs;
+    final isPairsLoading = liveChart.pairsLoading;
+
     return Expanded(
       child: ListView(
         padding: const EdgeInsets.all(Insets.md),
@@ -422,9 +426,36 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
                 .map((p) => _PairTile(pair: p, onTap: () => _selectPair(p))),
             const SizedBox(height: Insets.md),
           ],
-          const SectionHeader(title: 'All Pairs'),
+          Row(
+            children: [
+              const SectionHeader(title: 'All Pairs'),
+              const SizedBox(width: 8),
+              if (isPairsLoading)
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                      color: AppColors.gold, strokeWidth: 2),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.gold.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${allPairs.length}',
+                    style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.gold),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 8),
-          ...AppConstants.cryptoPairs
+          ...allPairs
               .map((p) => _PairTile(pair: p, onTap: () => _selectPair(p))),
           if (recents.isNotEmpty) ...[
             const SizedBox(height: Insets.md),

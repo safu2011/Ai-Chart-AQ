@@ -11,6 +11,7 @@ import '../../alerts/screens/alerts_screen.dart';
 import '../../analysis/screens/image_preview_screen.dart';
 import '../../charts/screens/live_chart_screen.dart';
 import '../../history/screens/history_screen.dart';
+import '../../onboarding/user_guide_overlay.dart';
 import '../../paywall/paywall_screen.dart';
 import '../../providers.dart';
 import '../../settings/screens/settings_screen.dart';
@@ -341,6 +342,7 @@ class _HomeScreenState extends State<HomeScreen>
         GestureDetector(
           onTap: () => _pickImage(ImageSource.gallery),
           child: Container(
+            key: guideKeyGallery,
             width: double.infinity, height: 140,
             decoration: BoxDecoration(
               color: cardColor,
@@ -369,11 +371,16 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
         const SizedBox(height: Insets.sm),
-        GradientButton(
-          label: 'Capture from Camera',
-          icon: Icon(Icons.camera_alt_outlined, color: AppTheme.bgColor(context), size: 18),
-          onTap: () => _pickImage(ImageSource.camera),
+        SizedBox(
+          key: guidekeyCameraBtn,
+          width: double.infinity,
           height: 50,
+          child: GradientButton(
+            label: 'Capture from Camera',
+            icon: Icon(Icons.camera_alt_outlined, color: AppTheme.bgColor(context), size: 18),
+            onTap: () => _pickImage(ImageSource.camera),
+            height: 50,
+          ),
         ),
       ],
     );
@@ -387,7 +394,7 @@ class _HomeScreenState extends State<HomeScreen>
       children: [
         const SectionHeader(title: 'Quick Access'),
         const SizedBox(height: Insets.md),
-        Row(children: [
+        Row(key: guideKeyQuickAccess, children: [
           Expanded(
             child: _ActionCard(
               icon: Icons.candlestick_chart_rounded,

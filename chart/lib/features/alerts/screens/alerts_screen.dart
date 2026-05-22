@@ -76,15 +76,15 @@ class _AlertsScreenState extends State<AlertsScreen>
               indicator: BoxDecoration(
                 gradient: LinearGradient(
                     colors: [gold, gold.withOpacity(0.7)]),
-                borderRadius: BorderRadius.circular(Radii.md),
+                borderRadius: BorderRadius.circular(60),
               ),
               labelColor: AppTheme.bgColor(context),
               unselectedLabelColor: AppTheme.textSecondary(context),
               labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               dividerColor: Colors.transparent,
               tabs: [
-                Tab(text: 'Active (${alertsProv.activeCount})'),
-                Tab(text: 'Triggered (${alertsProv.triggeredAlerts.length})'),
+                Tab(text: '    Active (${alertsProv.activeCount})    '),
+                Tab(text: '    Triggered (${alertsProv.triggeredAlerts.length}    '),
               ],
             ),
           ),

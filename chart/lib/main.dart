@@ -6,8 +6,8 @@ import 'package:provider/provider.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
-import 'features/home/screens/home_screen.dart';
 import 'features/providers.dart';
+import 'features/splash/splash_screen.dart';
 import 'services/ad_service.dart';
 import 'services/alerts_service.dart';
 import 'services/subscription_service.dart';
@@ -192,7 +192,7 @@ class _AiChartAnalyzerAppState extends State<AiChartAnalyzerApp> {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
-      home: const HomeScreen(),
+      home: const SplashScreen(),
     );
   }
 }

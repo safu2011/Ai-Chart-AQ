@@ -150,6 +150,11 @@ class LiveChartProvider extends ChangeNotifier {
   List<String> _favoritePairs = [];
   List<String> _recentPairs = [];
 
+  // All USDT pairs fetched dynamically from Binance
+  List<String> _allPairs = AppConstants.cryptoPairs; // seeded with defaults
+  bool _pairsLoading = false;
+  bool _pairsLoaded = false;
+
   LoadState _candleState = LoadState.idle;
   List<CandleData> _candles = [];
   String _candleError = '';
@@ -162,6 +167,8 @@ class LiveChartProvider extends ChangeNotifier {
   String get selectedInterval => _selectedInterval;
   List<String> get favoritePairs => _favoritePairs;
   List<String> get recentPairs => _recentPairs;
+  List<String> get allPairs => _allPairs;
+  bool get pairsLoading => _pairsLoading;
 
   LoadState get candleState => _candleState;
   List<CandleData> get candles => _candles;
@@ -173,12 +180,37 @@ class LiveChartProvider extends ChangeNotifier {
 
   LiveChartProvider() {
     _loadFavorites();
+    _fetchAllPairs();
   }
 
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     _favoritePairs = prefs.getStringList(_kFavoritesKey) ?? [];
     notifyListeners();
+  }
+
+  Future<void> _fetchAllPairs() async {
+    if (_pairsLoading || _pairsLoaded) return;
+    _pairsLoading = true;
+    notifyListeners();
+    try {
+      final pairs = await BinanceService.instance.getAllUsdtPairs();
+      if (pairs.isNotEmpty) {
+        _allPairs = pairs;
+        _pairsLoaded = true;
+      }
+    } catch (_) {
+      // Keep seeded defaults on failure
+    } finally {
+      _pairsLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Refresh all pairs list (call on pull-to-refresh or re-enter screen)
+  Future<void> refreshAllPairs() async {
+    _pairsLoaded = false;
+    await _fetchAllPairs();
   }
 
   void selectPair(String pair) {
