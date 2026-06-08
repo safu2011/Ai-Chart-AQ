@@ -19,6 +19,7 @@ dependencies:
   # Image
   image_picker: ^1.1.2
   screenshot: ^3.0.0
+  receive_sharing_intent: ^1.8.0
 
   # Storage
   shared_preferences: ^2.3.3

@@ -343,17 +343,53 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
 
     return Screenshot(
       controller: _screenshotController,
-      child: Container(
-        color: AppColors.bg,
-        child: chartCandles.isEmpty
-            ? const EmptyStateWidget(
-                icon: Icons.bar_chart_rounded,
-                title: 'No chart data',
-                subtitle: 'Could not load candle data for this pair.')
-            : Candlesticks(
-                candles: chartCandles,
-                actions: const [],
+      child: Stack(
+        children: [
+          Container(
+            color: AppColors.bg,
+            child: chartCandles.isEmpty
+                ? const EmptyStateWidget(
+                    icon: Icons.bar_chart_rounded,
+                    title: 'No chart data',
+                    subtitle: 'Could not load candle data for this pair.')
+                : Candlesticks(
+                    candles: chartCandles,
+                    actions: const [],
+                  ),
+          ),
+          // Expand button overlay
+          Positioned(
+            top: 8,
+            left: 8,
+            child: GestureDetector(
+              onTap: () => _openFullscreen(chartCandles),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.card.withOpacity(0.85),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: const Icon(Icons.fullscreen_rounded,
+                    color: AppColors.textSecondary, size: 18),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openFullscreen(List<Candle> candles) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black,
+        pageBuilder: (_, __, ___) => _FullscreenChartView(candles: candles),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+        transitionDuration: const Duration(milliseconds: 300),
       ),
     );
   }
@@ -522,6 +558,53 @@ class _TickerStat extends StatelessWidget {
       '$label: \$${v.toStringAsFixed(v > 100 ? 2 : 4)}',
       style:
           const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+    );
+  }
+}
+
+// ── Fullscreen Chart View ─────────────────────────────────────────────────────
+
+class _FullscreenChartView extends StatelessWidget {
+  final List<Candle> candles;
+  const _FullscreenChartView({required this.candles});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: candles.isEmpty
+                ? const Center(
+                    child: Text('No data',
+                        style: TextStyle(color: AppColors.textSecondary)))
+                : Candlesticks(
+                    candles: candles,
+                    actions: const [],
+                  ),
+          ),
+          // Close button
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            right: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.card.withOpacity(0.9),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: const Icon(Icons.fullscreen_exit_rounded,
+                    color: AppColors.textSecondary, size: 20),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

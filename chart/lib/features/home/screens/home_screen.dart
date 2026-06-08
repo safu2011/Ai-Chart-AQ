@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
@@ -28,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen>
   late AnimationController _animCtrl;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
+  StreamSubscription? _intentSub;
 
   @override
   void initState() {
@@ -40,10 +43,59 @@ class _HomeScreenState extends State<HomeScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
     _animCtrl.forward();
+    _initSharingIntent();
+  }
+
+  void _initSharingIntent() {
+    // Handle media when app is already running (foreground)
+    _intentSub = ReceiveSharingIntent.instance.getMediaStream().listen(
+      (List<SharedMediaFile> files) {
+        if (files.isNotEmpty) {
+          final path = files.first.path;
+          _handleSharedImagePath(path);
+        }
+      },
+      onError: (_) {},
+    );
+
+    // Handle media when app is launched via share intent (cold start)
+    ReceiveSharingIntent.instance.getInitialMedia().then(
+      (List<SharedMediaFile> files) {
+        if (files.isNotEmpty) {
+          final path = files.first.path;
+          ReceiveSharingIntent.instance.reset();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _handleSharedImagePath(path);
+          });
+        }
+      },
+    );
+  }
+
+  Future<void> _handleSharedImagePath(String path) async {
+    final file = File(path);
+    if (!await file.exists()) return;
+    final subProv = context.read<SubscriptionProvider>();
+    final canAnalyze = await subProv.canAnalyze();
+    if (!canAnalyze && mounted) {
+      final purchased = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      );
+      if (purchased != true) return;
+      final canNow = await subProv.canAnalyze();
+      if (!canNow || !mounted) return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ImagePreviewScreen(imageFile: file),
+      ),
+    );
   }
 
   @override
   void dispose() {
+    _intentSub?.cancel();
     _animCtrl.dispose();
     super.dispose();
   }
@@ -184,7 +236,7 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                   Text(
                     freeLeft > 0
-                        ? '$freeLeft free today${paidLeft > 0 ? ' + $paidLeft credits' : ''}'
+                        ? '$freeLeft free ${freeLeft == 1 ? 'analysis' : 'analyses'} remaining${paidLeft > 0 ? ' + $paidLeft credits' : ''}'
                         : paidLeft > 0
                             ? '$paidLeft paid credits remaining'
                             : 'No analyses left — tap to get more',

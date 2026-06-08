@@ -206,14 +206,14 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                       onTap: () =>
                           setState(() => _selectedTool = _DrawTool.pen),
                     ),
-                    const SizedBox(width: 6),
-                    _ToolBtn(
-                      icon: Icons.horizontal_rule_rounded,
-                      label: 'Line',
-                      selected: _selectedTool == _DrawTool.line,
-                      onTap: () =>
-                          setState(() => _selectedTool = _DrawTool.line),
-                    ),
+                    // const SizedBox(width: 6),
+                    // _ToolBtn(
+                    //   icon: Icons.horizontal_rule_rounded,
+                    //   label: 'Line',
+                    //   selected: _selectedTool == _DrawTool.line,
+                    //   onTap: () =>
+                    //       setState(() => _selectedTool = _DrawTool.line),
+                    // ),
                     const Spacer(),
                     // Stroke width
                     GestureDetector(

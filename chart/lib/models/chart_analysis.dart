@@ -38,24 +38,45 @@ class ChartAnalysis {
 
   /// Build from the JSON that OpenAI returns
   factory ChartAnalysis.fromAiJson(Map<String, dynamic> json) {
+    final summaryRaw = json['summary'] as String? ?? '';
+    // Detect invalid image responses from OpenAI
+    final isInvalidImg = _detectInvalidImage(summaryRaw);
     return ChartAnalysis(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       timestamp: DateTime.now(),
-      assetType: json['asset_type'] as String? ?? 'Unknown',
-      pair: json['pair'] as String? ?? '—',
-      sentiment: json['sentiment'] as String? ?? 'Neutral',
-      sentimentScore: (json['sentiment_score'] as num?)?.toDouble() ?? 0.5,
-      volumeScore: (json['volume_score'] as num?)?.toDouble() ?? 0.5,
-      volumeLabel: json['volume_label'] as String? ?? 'Medium',
-      summary: json['summary'] as String? ?? '',
-      keyLevels: json['key_levels'] as String? ?? '',
-      tradeScenario: json['trade_scenario'] as String? ?? '',
-      riskAnalysis: json['risk_analysis'] as String? ?? '',
-      finalNotes: json['final_notes'] as String? ?? '',
-      rawMarkdown: json['raw_markdown'] as String? ?? '',
+      assetType: isInvalidImg ? 'Unknown' : (json['asset_type'] as String? ?? 'Unknown'),
+      pair: isInvalidImg ? '—' : (json['pair'] as String? ?? '—'),
+      sentiment: isInvalidImg ? 'Neutral' : (json['sentiment'] as String? ?? 'Neutral'),
+      sentimentScore: isInvalidImg ? 0.0 : (json['sentiment_score'] as num?)?.toDouble() ?? 0.5,
+      volumeScore: isInvalidImg ? 0.0 : (json['volume_score'] as num?)?.toDouble() ?? 0.5,
+      volumeLabel: isInvalidImg ? 'None' : (json['volume_label'] as String? ?? 'Medium'),
+      summary: summaryRaw,
+      keyLevels: isInvalidImg ? '' : (json['key_levels'] as String? ?? ''),
+      tradeScenario: isInvalidImg ? '' : (json['trade_scenario'] as String? ?? ''),
+      riskAnalysis: isInvalidImg ? '' : (json['risk_analysis'] as String? ?? ''),
+      finalNotes: isInvalidImg ? '' : (json['final_notes'] as String? ?? ''),
+      rawMarkdown: isInvalidImg ? '' : (json['raw_markdown'] as String? ?? ''),
       chartImagePath: json['chart_image_path'] as String?,
     );
   }
+
+  static bool _detectInvalidImage(String summary) {
+    final lower = summary.toLowerCase();
+    final invalidPhrases = [
+      'valid chart image is required',
+      'does not display any financial data',
+      'not a valid chart',
+      'cannot analyze',
+      'no chart detected',
+      'no financial data',
+      'unable to identify',
+      'not a financial chart',
+      'please provide a chart',
+    ];
+    return invalidPhrases.any((phrase) => lower.contains(phrase));
+  }
+
+  bool get isInvalidImage => _detectInvalidImage(summary);
 
   factory ChartAnalysis.fromJson(Map<String, dynamic> json) {
     return ChartAnalysis(

@@ -254,7 +254,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Text('Free Plan',
                             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: textPrimary)),
-                        Text('${subProv.freeRemaining} free today • ${subProv.paidCredits} paid credits',
+                        Text('${subProv.freeRemaining} free credits • ${subProv.paidCredits} paid credits',
                             style: TextStyle(fontSize: 11, color: textSecondary)),
                       ],
                     ),

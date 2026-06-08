@@ -76,9 +76,6 @@ Analyse these aspects if visible on the chart:
 - Bullish vs bearish probability estimate
 - Overall risk level
 
-Always end raw_markdown with exactly this line:
-"\\n\\n---\\n*This analysis is AI-generated and is for educational purposes only. This is NOT financial or investment advice. Always do your own research.*"
-
 If the image is not a financial chart, set sentiment to "Neutral", sentiment_score to 0.5, and explain in summary that a valid chart image is required.
 ''';
 

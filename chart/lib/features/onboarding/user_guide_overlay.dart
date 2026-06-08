@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_theme.dart';
 import '../../features/providers.dart';
 import '../home/screens/home_screen.dart';
+import '../paywall/paywall_screen.dart';
 
 // ─── GlobalKeys — attached to target widgets in HomeScreen ───────────────────
 
@@ -37,6 +38,21 @@ class _HomeScreenWithGuideState extends State<HomeScreenWithGuide> {
     if (mounted) setState(() => _showGuide = false);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('guide_shown', true);
+
+    // After tutorial, show paywall for non-premium users
+    if (!mounted) return;
+    final subProv = context.read<SubscriptionProvider>();
+    await subProv.refresh();
+    if (!mounted) return;
+    if (!subProv.isPro) {
+      await Navigator.of(context).push(
+        PageRouteBuilder(
+          pageBuilder: (_, anim, __) =>
+              FadeTransition(opacity: anim, child: const PaywallScreen()),
+          transitionDuration: const Duration(milliseconds: 400),
+        ),
+      );
+    }
   }
 
   @override
@@ -524,7 +540,7 @@ class _UserGuideOverlayState extends State<UserGuideOverlay>
                                 ),
                                 child: Text(
                                   _step == _steps.length - 1
-                                      ? 'Start Trading'
+                                      ? 'Start Analyzing'
                                       : 'Next',
                                   style: TextStyle(
                                     color: bg,

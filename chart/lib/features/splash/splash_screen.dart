@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../features/providers.dart';
 import '../home/screens/home_screen.dart';
 import '../onboarding/user_guide_overlay.dart';
+import '../paywall/paywall_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -118,19 +119,49 @@ class _SplashScreenState extends State<SplashScreen>
     final isFirstTime = !(prefs.getBool('guide_shown') ?? false);
 
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 600),
-        pageBuilder: (_, animation, __) {
-          return FadeTransition(
+
+    if (isFirstTime) {
+      // First launch → show tutorial overlay
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 600),
+          pageBuilder: (_, animation, __) => FadeTransition(
             opacity: animation,
-            child: isFirstTime
-                ? const HomeScreenWithGuide()
-                : const HomeScreen(),
-          );
-        },
-      ),
-    );
+            child: const HomeScreenWithGuide(),
+          ),
+        ),
+      );
+    } else {
+      // Subsequent launches → check subscription
+      // ignore: use_build_context_synchronously
+      final subProv = context.read<SubscriptionProvider>();
+      await subProv.refresh();
+
+      if (!mounted) return;
+
+      if (!subProv.isPro && subProv.totalAvailable == 0) {
+        // No credits left → push paywall, then home on back
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            transitionDuration: const Duration(milliseconds: 600),
+            pageBuilder: (_, animation, __) => FadeTransition(
+              opacity: animation,
+              child: const _PaywallThenHome(),
+            ),
+          ),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            transitionDuration: const Duration(milliseconds: 600),
+            pageBuilder: (_, animation, __) => FadeTransition(
+              opacity: animation,
+              child: const HomeScreen(),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -559,4 +590,55 @@ class _DashedCirclePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DashedCirclePainter old) => false;
+}
+
+// ── PaywallThenHome ───────────────────────────────────────────────────────────
+/// Shown on 2nd+ launch when user has no credits.
+/// Displays the paywall first; pressing back reveals the HomeScreen underneath.
+
+class _PaywallThenHome extends StatelessWidget {
+  const _PaywallThenHome();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        const HomeScreen(),
+        const _ImmediatePaywall(),
+      ],
+    );
+  }
+}
+
+class _ImmediatePaywall extends StatefulWidget {
+  const _ImmediatePaywall();
+
+  @override
+  State<_ImmediatePaywall> createState() => _ImmediatePaywallState();
+}
+
+class _ImmediatePaywallState extends State<_ImmediatePaywall> {
+  bool _visible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _push());
+  }
+
+  Future<void> _push() async {
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, anim, __) =>
+            FadeTransition(opacity: anim, child: const PaywallScreen()),
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
+    );
+    // After paywall is dismissed (back), hide this overlay — HomeScreen shows
+    if (mounted) setState(() => _visible = false);
+  }
+
+  @override
+  Widget build(BuildContext context) => _visible ? const SizedBox.shrink() : const SizedBox.shrink();
 }

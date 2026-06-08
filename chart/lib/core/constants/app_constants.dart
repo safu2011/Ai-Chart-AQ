@@ -9,7 +9,7 @@ class AppConstants {
   // ── OpenAI ─────────────────────────────────────────────────────────────────
   static const String openAiApiKey = String.fromEnvironment(
     'OPENAI_API_KEY',
-    defaultValue: 'YOUR_API_KEY_HERE',
+    defaultValue: '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',
   );
   static const openAiBaseUrl = 'https://api.openai.com/v1';
   static const openAiModel = 'gpt-4o-mini';
@@ -38,8 +38,10 @@ class AppConstants {
   static const creditsInPack50  = 50;
   static const creditsInPack200 = 200;
 
-  // Free tier
-  static const freeAnalysesPerDay = 3;
+  // Free tier — ONE-TIME lifetime free analyses (not per day)
+  static const freeAnalysesTotal = 3;
+  // Keep alias for any legacy references
+  static const freeAnalysesPerDay = freeAnalysesTotal;
 
   // ── AdMob ──────────────────────────────────────────────────────────────────
   // Replace with real Ad Unit IDs from https://admob.google.com
