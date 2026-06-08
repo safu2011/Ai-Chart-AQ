@@ -223,7 +223,7 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                       // Drawing canvas
                       Positioned.fill(
                         child: GestureDetector(
-                          onPanStart: _selectedTool == _DrawTool.none
+                          onPanStart: (_selectedTool == _DrawTool.none || _selectedTool == _DrawTool.crop)
                               ? null
                               : (d) {
                                   setState(() {
@@ -234,7 +234,7 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                                     ];
                                   });
                                 },
-                          onPanUpdate: _selectedTool == _DrawTool.none
+                          onPanUpdate: (_selectedTool == _DrawTool.none || _selectedTool == _DrawTool.crop)
                               ? null
                               : (d) {
                                   setState(() {
@@ -244,7 +244,7 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                                         _strokeWidth));
                                   });
                                 },
-                          onPanEnd: _selectedTool == _DrawTool.none
+                          onPanEnd: (_selectedTool == _DrawTool.none || _selectedTool == _DrawTool.crop)
                               ? null
                               : (d) {
                                   setState(() {
@@ -263,36 +263,38 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                           ),
                         ),
                       ),
-                      // Crop selection overlay
-                      if (_selectedTool == _DrawTool.crop)
-                        Positioned.fill(
-                          child: GestureDetector(
-                            onPanStart: (d) {
-                              setState(() {
-                                _cropStart = d.localPosition;
-                                _cropEnd = d.localPosition;
-                                _isCropping = true;
-                              });
-                            },
-                            onPanUpdate: (d) {
-                              setState(() => _cropEnd = d.localPosition);
-                            },
-                            onPanEnd: (_) {
-                              setState(() => _isCropping = false);
-                            },
-                            child: _cropStart != null && _cropEnd != null
-                                ? CustomPaint(
-                                    painter: _CropOverlayPainter(
-                                      start: _cropStart!,
-                                      end: _cropEnd!,
-                                    ),
-                                  )
-                                : const SizedBox.expand(),
-                          ),
-                        ),
                     ],
                   ),
                 ),
+                // Crop selection overlay — outside RepaintBoundary so it's
+                // not baked into the annotated image export
+                if (_selectedTool == _DrawTool.crop)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onPanStart: (d) {
+                        setState(() {
+                          _cropStart = d.localPosition;
+                          _cropEnd = d.localPosition;
+                          _isCropping = true;
+                        });
+                      },
+                      onPanUpdate: (d) {
+                        setState(() => _cropEnd = d.localPosition);
+                      },
+                      onPanEnd: (_) {
+                        setState(() => _isCropping = false);
+                      },
+                      child: _cropStart != null && _cropEnd != null
+                          ? CustomPaint(
+                              painter: _CropOverlayPainter(
+                                start: _cropStart!,
+                                end: _cropEnd!,
+                              ),
+                            )
+                          : const SizedBox.expand(),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -313,9 +315,9 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                 children: [
                   Expanded(
                     child: OutlineButton(
-                      label: 'Cancel Crop',
+                      label: 'Cancel',
                       icon: const Icon(Icons.close_rounded,
-                          size: 15, color: AppColors.textSecondary),
+                          size: 18, color: AppColors.textSecondary),
                       onTap: () => setState(() {
                         _cropStart = null;
                         _cropEnd = null;
@@ -379,8 +381,8 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                       onTap: () {
                         setState(() {
                           _selectedTool = _DrawTool.crop;
-                          _cropStart = null;
-                          _cropEnd = null;
+                          _cropStart = Offset.zero;
+                          _cropEnd = Offset.zero;
                         });
                       },
                     ),
@@ -394,7 +396,7 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                     // ),
                     const Spacer(),
                     // Stroke width — only shown when a drawing tool is active
-                    if (_selectedTool != _DrawTool.none)
+                    if (_selectedTool == _DrawTool.pen)
                       GestureDetector(
                         onTap: () => setState(() =>
                             _strokeWidth = _strokeWidth == 2.5 ? 4.5 : 2.5),
@@ -429,6 +431,7 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                 ),
                 const SizedBox(height: 8),
                 // Color row
+
                 Row(
                   children: [
                     const Text('Color:',

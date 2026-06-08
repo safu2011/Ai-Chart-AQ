@@ -17,7 +17,8 @@ final GlobalKey guideKeyQuickAccess = GlobalKey(debugLabel: 'guide_quick');
 
 
 class HomeScreenWithGuide extends StatefulWidget {
-  const HomeScreenWithGuide({super.key});
+  final bool showPaywallOnDismiss;
+  const HomeScreenWithGuide({super.key, this.showPaywallOnDismiss = true});
 
   @override
   State<HomeScreenWithGuide> createState() => _HomeScreenWithGuideState();
@@ -39,7 +40,8 @@ class _HomeScreenWithGuideState extends State<HomeScreenWithGuide> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('guide_shown', true);
 
-    // After tutorial, show paywall for non-premium users
+    // After tutorial, optionally show paywall for non-premium users
+    if (!widget.showPaywallOnDismiss) return;
     if (!mounted) return;
     final subProv = context.read<SubscriptionProvider>();
     await subProv.refresh();
