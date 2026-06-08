@@ -370,9 +370,15 @@ class _HomeScreenState extends State<HomeScreen>
           const SizedBox(height: Insets.lg),
           Row(children: [
             _StatChip(label: 'Patterns', icon: Icons.pattern),
-            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text('·', style: TextStyle(color: AppTheme.textSecondary(context), fontSize: 14)),
+            ),
             _StatChip(label: 'Levels', icon: Icons.horizontal_rule_rounded),
-            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text('·', style: TextStyle(color: AppTheme.textSecondary(context), fontSize: 14)),
+            ),
             _StatChip(label: 'Signals', icon: Icons.bolt_rounded),
           ]),
         ],
@@ -525,20 +531,20 @@ class _StatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppTheme.neutral(context),
-        borderRadius: BorderRadius.circular(Radii.full),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: AppTheme.textSecondary(context)),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary(context), fontWeight: FontWeight.w500)),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: AppTheme.textSecondary(context)),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: AppTheme.textSecondary(context),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

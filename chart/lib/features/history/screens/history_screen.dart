@@ -166,17 +166,41 @@ class _HistoryItem extends StatelessWidget {
           ),
           child: Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(Radii.sm),
-                child: analysis.chartImagePath != null
-                    ? Image.file(
-                        File(analysis.chartImagePath!),
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _placeholderThumb(),
-                      )
-                    : _placeholderThumb(),
+              GestureDetector(
+                onTap: () => _openFullImage(context),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(Radii.sm),
+                      child: analysis.chartImagePath != null
+                          ? Image.file(
+                              File(analysis.chartImagePath!),
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _placeholderThumb(),
+                            )
+                          : _placeholderThumb(),
+                    ),
+                    Positioned(
+                      right: 2,
+                      bottom: 2,
+                      child: Container(
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.55),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Icon(
+                          Icons.fullscreen_rounded,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(width: Insets.md),
               Expanded(
@@ -237,6 +261,22 @@ class _HistoryItem extends StatelessWidget {
                   color: AppColors.textMuted, size: 18),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _openFullImage(BuildContext context) {
+    if (analysis.chartImagePath == null) return;
+    final file = File(analysis.chartImagePath!);
+    if (!file.existsSync()) return;
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black87,
+        pageBuilder: (_, anim, __) => FadeTransition(
+          opacity: anim,
+          child: _FullScreenImageView(file: file),
         ),
       ),
     );
@@ -367,6 +407,95 @@ class _AnalysisDetailSheet extends StatelessWidget {
                     color: AppColors.textSecondary,
                     height: 1.6)),
             const SizedBox(height: Insets.xl),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+class _FullScreenImageView extends StatefulWidget {
+  final File file;
+  const _FullScreenImageView({required this.file});
+
+  @override
+  State<_FullScreenImageView> createState() => _FullScreenImageViewState();
+}
+
+class _FullScreenImageViewState extends State<_FullScreenImageView> {
+  final TransformationController _transformCtrl = TransformationController();
+
+  @override
+  void dispose() {
+    _transformCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pop(),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () {}, // prevent tap-through to close when interacting
+                child: InteractiveViewer(
+                  transformationController: _transformCtrl,
+                  minScale: 0.5,
+                  maxScale: 5.0,
+                  child: Center(
+                    child: Hero(
+                      tag: widget.file.path,
+                      child: Image.file(widget.file, fit: BoxFit.contain),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              right: 16,
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close_rounded,
+                      color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: MediaQuery.of(context).padding.bottom + 16,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () => _transformCtrl.value = Matrix4.identity(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'Tap outside or reset zoom',
+                      style: TextStyle(
+                          color: Colors.white60, fontSize: 12),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

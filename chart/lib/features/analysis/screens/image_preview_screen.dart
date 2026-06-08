@@ -13,7 +13,7 @@ import '../../../widgets/shared_widgets.dart';
 import '../../providers.dart';
 import 'analysis_result_screen.dart';
 
-enum _DrawTool { none, pen, line, rect }
+enum _DrawTool { none, pen, line, rect, crop }
 
 class _DrawPoint {
   final Offset offset;
@@ -45,6 +45,14 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
 
   bool _showDisclaimer = true;
 
+  // Crop state
+  Offset? _cropStart;
+  Offset? _cropEnd;
+  bool _isCropping = false;
+  Size? _imageRenderSize;
+  Offset? _imageRenderOffset;
+  final GlobalKey _imageContainerKey = GlobalKey();
+
   final List<Color> _colorPalette = [
     AppColors.emerald,
     AppColors.red,
@@ -53,6 +61,92 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
     Colors.white,
     Colors.orange,
   ];
+
+  /// Returns the rendered size and top-left offset of the image within the container
+  void _measureImageRender() {
+    final ctx = _imageContainerKey.currentContext;
+    if (ctx == null) return;
+    final box = ctx.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    _imageRenderSize = box.size;
+    _imageRenderOffset = box.localToGlobal(Offset.zero);
+  }
+
+  Future<void> _applyCrop() async {
+    if (_cropStart == null || _cropEnd == null) return;
+
+    final minX = _cropStart!.dx < _cropEnd!.dx ? _cropStart!.dx : _cropEnd!.dx;
+    final minY = _cropStart!.dy < _cropEnd!.dy ? _cropStart!.dy : _cropEnd!.dy;
+    final maxX = _cropStart!.dx > _cropEnd!.dx ? _cropStart!.dx : _cropEnd!.dx;
+    final maxY = _cropStart!.dy > _cropEnd!.dy ? _cropStart!.dy : _cropEnd!.dy;
+
+    if ((maxX - minX) < 10 || (maxY - minY) < 10) return;
+
+    // Get the container size that holds the image
+    final ctx = _imageContainerKey.currentContext;
+    if (ctx == null) return;
+    final box = ctx.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final containerSize = box.size;
+
+    // Load the original image to get its real dimensions
+    final bytes = await widget.imageFile.readAsBytes();
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    final imgW = frame.image.width.toDouble();
+    final imgH = frame.image.height.toDouble();
+
+    // BoxFit.contain logic: compute actual rendered image rect inside container
+    final containerAspect = containerSize.width / containerSize.height;
+    final imgAspect = imgW / imgH;
+    double renderW, renderH, renderX, renderY;
+    if (imgAspect > containerAspect) {
+      renderW = containerSize.width;
+      renderH = containerSize.width / imgAspect;
+      renderX = 0;
+      renderY = (containerSize.height - renderH) / 2;
+    } else {
+      renderH = containerSize.height;
+      renderW = containerSize.height * imgAspect;
+      renderX = (containerSize.width - renderW) / 2;
+      renderY = 0;
+    }
+
+    // Map tap coordinates (within container) to image pixel coordinates
+    final scaleX = imgW / renderW;
+    final scaleY = imgH / renderH;
+
+    int cropX = ((minX - renderX) * scaleX).round().clamp(0, imgW.toInt());
+    int cropY = ((minY - renderY) * scaleY).round().clamp(0, imgH.toInt());
+    int cropW = ((maxX - minX) * scaleX).round().clamp(1, imgW.toInt() - cropX);
+    int cropH = ((maxY - minY) * scaleY).round().clamp(1, imgH.toInt() - cropY);
+
+    // Use ui.Canvas to crop
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final srcRect = Rect.fromLTWH(
+        cropX.toDouble(), cropY.toDouble(), cropW.toDouble(), cropH.toDouble());
+    final dstRect = Rect.fromLTWH(0, 0, cropW.toDouble(), cropH.toDouble());
+    canvas.drawImageRect(frame.image, srcRect, dstRect, Paint());
+    final picture = recorder.endRecording();
+    final croppedImage = await picture.toImage(cropW, cropH);
+    final byteData =
+        await croppedImage.toByteData(format: ui.ImageByteFormat.png);
+    final croppedBytes = byteData!.buffer.asUint8List();
+
+    final dir = Directory.systemTemp;
+    final croppedFile = File(
+        '${dir.path}/cropped_${DateTime.now().millisecondsSinceEpoch}.png');
+    await croppedFile.writeAsBytes(croppedBytes);
+
+    if (!mounted) return;
+    // Replace the image and reset crop state
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => ImagePreviewScreen(imageFile: croppedFile),
+      ),
+    );
+  }
 
   Future<File> _captureAnnotated() async {
     final boundary = _repaintKey.currentContext!.findRenderObject()
@@ -93,16 +187,17 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
       appBar: AppTopBar(
         title: 'Preview & Markup',
         actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _strokes.clear();
-                _currentStroke = [];
-              });
-            },
-            child: const Text('Clear',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-          ),
+          if (_strokes.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _strokes.clear();
+                  _currentStroke = [];
+                });
+              },
+              child: const Text('Clear',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+            ),
         ],
       ),
       body: Column(
@@ -117,9 +212,12 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                     children: [
                       // Image
                       Positioned.fill(
-                        child: Image.file(
+                        child: KeyedSubtree(
+                          key: _imageContainerKey,
+                          child: Image.file(
                           widget.imageFile,
                           fit: BoxFit.contain,
+                        ),
                         ),
                       ),
                       // Drawing canvas
@@ -165,12 +263,79 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                           ),
                         ),
                       ),
+                      // Crop selection overlay
+                      if (_selectedTool == _DrawTool.crop)
+                        Positioned.fill(
+                          child: GestureDetector(
+                            onPanStart: (d) {
+                              setState(() {
+                                _cropStart = d.localPosition;
+                                _cropEnd = d.localPosition;
+                                _isCropping = true;
+                              });
+                            },
+                            onPanUpdate: (d) {
+                              setState(() => _cropEnd = d.localPosition);
+                            },
+                            onPanEnd: (_) {
+                              setState(() => _isCropping = false);
+                            },
+                            child: _cropStart != null && _cropEnd != null
+                                ? CustomPaint(
+                                    painter: _CropOverlayPainter(
+                                      start: _cropStart!,
+                                      end: _cropEnd!,
+                                    ),
+                                  )
+                                : const SizedBox.expand(),
+                          ),
+                        ),
                     ],
                   ),
                 ),
               ],
             ),
           ),
+
+          // Crop apply bar
+          if (_selectedTool == _DrawTool.crop &&
+              _cropStart != null &&
+              _cropEnd != null)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: Insets.md, vertical: Insets.sm),
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                border: Border(
+                    top: BorderSide(color: AppColors.border, width: 0.5)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlineButton(
+                      label: 'Cancel Crop',
+                      icon: const Icon(Icons.close_rounded,
+                          size: 15, color: AppColors.textSecondary),
+                      onTap: () => setState(() {
+                        _cropStart = null;
+                        _cropEnd = null;
+                        _selectedTool = _DrawTool.none;
+                      }),
+                    ),
+                  ),
+                  const SizedBox(width: Insets.sm),
+                  Expanded(
+                    flex: 2,
+                    child: GradientButton(
+                      label: 'Apply Crop',
+                      icon: const Icon(Icons.crop_rounded,
+                          color: AppColors.bg, size: 16),
+                      onTap: _applyCrop,
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // Toolbar
           Container(
@@ -206,6 +371,19 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                       onTap: () =>
                           setState(() => _selectedTool = _DrawTool.pen),
                     ),
+                    const SizedBox(width: 6),
+                    _ToolBtn(
+                      icon: Icons.crop_rounded,
+                      label: 'Crop',
+                      selected: _selectedTool == _DrawTool.crop,
+                      onTap: () {
+                        setState(() {
+                          _selectedTool = _DrawTool.crop;
+                          _cropStart = null;
+                          _cropEnd = null;
+                        });
+                      },
+                    ),
                     // const SizedBox(width: 6),
                     // _ToolBtn(
                     //   icon: Icons.horizontal_rule_rounded,
@@ -215,37 +393,38 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                     //       setState(() => _selectedTool = _DrawTool.line),
                     // ),
                     const Spacer(),
-                    // Stroke width
-                    GestureDetector(
-                      onTap: () => setState(() =>
-                          _strokeWidth = _strokeWidth == 2.5 ? 4.5 : 2.5),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          borderRadius:
-                              BorderRadius.circular(Radii.sm),
-                          border:
-                              Border.all(color: AppColors.border),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.line_weight_rounded,
-                                size: 14,
-                                color: AppColors.textSecondary),
-                            const SizedBox(width: 4),
-                            Text(
-                                _strokeWidth == 2.5
-                                    ? 'Thin'
-                                    : 'Thick',
-                                style: const TextStyle(
-                                    fontSize: 11,
-                                    color: AppColors.textSecondary)),
-                          ],
+                    // Stroke width — only shown when a drawing tool is active
+                    if (_selectedTool != _DrawTool.none)
+                      GestureDetector(
+                        onTap: () => setState(() =>
+                            _strokeWidth = _strokeWidth == 2.5 ? 4.5 : 2.5),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius:
+                                BorderRadius.circular(Radii.sm),
+                            border:
+                                Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.line_weight_rounded,
+                                  size: 14,
+                                  color: AppColors.textSecondary),
+                              const SizedBox(width: 4),
+                              Text(
+                                  _strokeWidth == 2.5
+                                      ? 'Thin'
+                                      : 'Thick',
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.textSecondary)),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -401,4 +580,75 @@ class _DrawingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DrawingPainter old) => true;
+}
+
+class _CropOverlayPainter extends CustomPainter {
+  final Offset start;
+  final Offset end;
+
+  const _CropOverlayPainter({required this.start, required this.end});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromPoints(start, end);
+
+    // Dim everything outside the crop rect
+    final dimPaint = Paint()..color = Colors.black.withOpacity(0.5);
+    final path = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..addRect(rect)
+      ..fillType = PathFillType.evenOdd;
+    canvas.drawPath(path, dimPaint);
+
+    // Crop border
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawRect(rect, borderPaint);
+
+    // Rule-of-thirds grid
+    final gridPaint = Paint()
+      ..color = Colors.white.withOpacity(0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+    final w3 = rect.width / 3;
+    final h3 = rect.height / 3;
+    for (int i = 1; i < 3; i++) {
+      canvas.drawLine(
+          Offset(rect.left + w3 * i, rect.top),
+          Offset(rect.left + w3 * i, rect.bottom),
+          gridPaint);
+      canvas.drawLine(
+          Offset(rect.left, rect.top + h3 * i),
+          Offset(rect.right, rect.top + h3 * i),
+          gridPaint);
+    }
+
+    // Corner handles
+    const handleLen = 16.0;
+    const handleWidth = 2.5;
+    final handlePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = handleWidth
+      ..strokeCap = StrokeCap.round;
+
+    final corners = [
+      [rect.topLeft, const Offset(handleLen, 0), const Offset(0, handleLen)],
+      [rect.topRight, const Offset(-handleLen, 0), const Offset(0, handleLen)],
+      [rect.bottomLeft, const Offset(handleLen, 0), const Offset(0, -handleLen)],
+      [rect.bottomRight, const Offset(-handleLen, 0), const Offset(0, -handleLen)],
+    ];
+
+    for (final c in corners) {
+      final origin = c[0] as Offset;
+      canvas.drawLine(origin, origin + (c[1] as Offset), handlePaint);
+      canvas.drawLine(origin, origin + (c[2] as Offset), handlePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CropOverlayPainter old) =>
+      old.start != start || old.end != end;
 }

@@ -523,8 +523,14 @@ class _UserGuideOverlayStandaloneState
   late Animation<Offset> _slideAnim;
   late Animation<double> _slideFade;
 
+  late AnimationController _pulseCtrl;
+  late Animation<double> _pulseAnim;
+
   late AnimationController _arrowCtrl;
-  late Animation<Offset> _arrowAnim;
+  late Animation<double> _arrowBounce;
+
+  late AnimationController _fadeCtrl;
+  late Animation<double> _fadeAnim;
 
   static const _steps = [
     _GuideInfo(
@@ -556,6 +562,12 @@ class _UserGuideOverlayStandaloneState
   @override
   void initState() {
     super.initState();
+
+    _fadeCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 400));
+    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
+    _fadeCtrl.forward();
+
     _slideCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 400));
     _slideAnim =
@@ -564,17 +576,24 @@ class _UserGuideOverlayStandaloneState
     _slideFade = CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOut);
     _slideCtrl.forward();
 
-    _arrowCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 700))
+    _pulseCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1100))
       ..repeat(reverse: true);
-    _arrowAnim =
-        Tween<Offset>(begin: Offset.zero, end: const Offset(0, 0.3)).animate(
-            CurvedAnimation(parent: _arrowCtrl, curve: Curves.easeInOut));
+    _pulseAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
+
+    _arrowCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 650))
+      ..repeat(reverse: true);
+    _arrowBounce = Tween<double>(begin: 0.0, end: 10.0).animate(
+        CurvedAnimation(parent: _arrowCtrl, curve: Curves.easeInOut));
   }
 
   @override
   void dispose() {
+    _fadeCtrl.dispose();
     _slideCtrl.dispose();
+    _pulseCtrl.dispose();
     _arrowCtrl.dispose();
     super.dispose();
   }
@@ -585,7 +604,7 @@ class _UserGuideOverlayStandaloneState
       setState(() => _step++);
       _slideCtrl.forward();
     } else {
-      widget.onDismiss();
+      _fadeCtrl.reverse().then((_) => widget.onDismiss());
     }
   }
 
@@ -601,130 +620,220 @@ class _UserGuideOverlayStandaloneState
     final textSecondary =
         isDark ? AppColorsDark.textSecondary : AppColorsLight.textSecondary;
     final step = _steps[_step];
+    final screenH = MediaQuery.of(context).size.height;
 
-    return Stack(
-      children: [
-        Positioned.fill(child: Container(color: Colors.black.withOpacity(0.8))),
-        Center(
-          child: SlideTransition(
-            position: _arrowAnim,
-            child: Icon(Icons.touch_app_rounded, color: gold, size: 64),
+    // Step-specific icon positions for the bouncing indicator
+    // These simulate the spotlight indicator in the center of the screen
+    final indicatorPositions = [
+      Offset(MediaQuery.of(context).size.width / 2, screenH * 0.38),
+      Offset(MediaQuery.of(context).size.width / 2, screenH * 0.50),
+      Offset(MediaQuery.of(context).size.width / 2, screenH * 0.62),
+      Offset(MediaQuery.of(context).size.width / 2, screenH * 0.50),
+    ];
+    final indicatorPos = indicatorPositions[_step.clamp(0, indicatorPositions.length - 1)];
+
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: Stack(
+        children: [
+          // Backdrop
+          Positioned.fill(
+            child: Container(color: Colors.black.withOpacity(0.78)),
           ),
-        ),
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: 60,
-          child: SlideTransition(
-            position: _slideAnim,
-            child: FadeTransition(
-              opacity: _slideFade,
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: card,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: gold.withOpacity(0.25)),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withOpacity(0.4),
-                        blurRadius: 40,
-                        offset: const Offset(0, 10))
+
+          // Pulsing spotlight ring
+          AnimatedBuilder(
+            animation: _pulseAnim,
+            builder: (_, __) {
+              final radius = 52.0 + _pulseAnim.value * 12.0;
+              return Positioned(
+                left: indicatorPos.dx - radius,
+                top: indicatorPos.dy - radius,
+                child: Container(
+                  width: radius * 2,
+                  height: radius * 2,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: gold.withOpacity(0.55 + 0.35 * _pulseAnim.value),
+                      width: 2.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: gold.withOpacity(0.12 + 0.18 * _pulseAnim.value),
+                        blurRadius: 20,
+                        spreadRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // Center step icon with glow
+          Positioned(
+            left: indicatorPos.dx - 30,
+            top: indicatorPos.dy - 30,
+            child: Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [gold, goldSoft]),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: gold.withOpacity(0.45),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Icon(step.icon, color: bg, size: 28),
+            ),
+          ),
+
+          // Bouncing arrow pointing to icon
+          AnimatedBuilder(
+            animation: _arrowBounce,
+            builder: (_, __) {
+              return Positioned(
+                left: indicatorPos.dx - 16,
+                top: indicatorPos.dy - 90 - _arrowBounce.value,
+                child: Icon(
+                  Icons.arrow_downward_rounded,
+                  color: gold,
+                  size: 32,
+                  shadows: [
+                    Shadow(color: gold.withOpacity(0.6), blurRadius: 12),
                   ],
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            gradient:
-                                LinearGradient(colors: [gold, goldSoft]),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(step.icon, color: bg, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            step.title,
-                            style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                color: textPrimary),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: widget.onDismiss,
-                          child: Text('Close',
-                              style: TextStyle(
-                                  fontSize: 13, color: textSecondary)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(step.description,
-                        style: TextStyle(
-                            fontSize: 14, color: textSecondary, height: 1.55)),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Row(
-                          children: List.generate(
-                            _steps.length,
-                            (i) => AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              width: i == _step ? 20 : 6,
-                              height: 6,
-                              margin: const EdgeInsets.only(right: 4),
-                              decoration: BoxDecoration(
-                                color: i == _step
-                                    ? gold
-                                    : gold.withOpacity(0.25),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        GestureDetector(
-                          onTap: _next,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 12),
+              );
+            },
+          ),
+
+          // Guide card from bottom
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 60,
+            child: SlideTransition(
+              position: _slideAnim,
+              child: FadeTransition(
+                opacity: _slideFade,
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: card,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: gold.withOpacity(0.25)),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withOpacity(0.4),
+                          blurRadius: 40,
+                          offset: const Offset(0, 10))
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
                             decoration: BoxDecoration(
                               gradient:
                                   LinearGradient(colors: [gold, goldSoft]),
-                              borderRadius: BorderRadius.circular(50),
-                              boxShadow: [
-                                BoxShadow(
-                                    color: gold.withOpacity(0.4),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 4))
-                              ],
+                              borderRadius: BorderRadius.circular(12),
                             ),
+                            child: Icon(step.icon, color: bg, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
                             child: Text(
-                              _step == _steps.length - 1 ? 'Done' : 'Next',
+                              step.title,
                               style: TextStyle(
-                                  color: bg,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700),
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  color: textPrimary,
+                                  decoration: TextDecoration.none),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          TextButton(
+                            onPressed: () =>
+                                _fadeCtrl.reverse().then((_) => widget.onDismiss()),
+                            child: Text('Close',
+                                style: TextStyle(
+                                    fontSize: 13, color: textSecondary)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(step.description,
+                          style: TextStyle(
+                              fontSize: 14,
+                              color: textSecondary,
+                              height: 1.55,
+                              decoration: TextDecoration.none)),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Row(
+                            children: List.generate(
+                              _steps.length,
+                              (i) => AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                width: i == _step ? 20 : 6,
+                                height: 6,
+                                margin: const EdgeInsets.only(right: 4),
+                                decoration: BoxDecoration(
+                                  color: i == _step
+                                      ? gold
+                                      : gold.withOpacity(0.25),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: _next,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
+                              decoration: BoxDecoration(
+                                gradient:
+                                    LinearGradient(colors: [gold, goldSoft]),
+                                borderRadius: BorderRadius.circular(50),
+                                boxShadow: [
+                                  BoxShadow(
+                                      color: gold.withOpacity(0.4),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 4))
+                                ],
+                              ),
+                              child: Text(
+                                _step == _steps.length - 1 ? 'Done' : 'Next',
+                                style: TextStyle(
+                                    color: bg,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    decoration: TextDecoration.none),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
