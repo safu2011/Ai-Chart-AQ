@@ -12,6 +12,7 @@ import '../../../models/chart_analysis.dart';
 import '../../../services/credits_service.dart';
 import '../../../widgets/shared_widgets.dart';
 import '../../providers.dart';
+import '../../rating/rating_dialog.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
   final File imageFile;
@@ -37,6 +38,16 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
         if (mounted) Navigator.of(context).pop();
         return;
       }
+
+      // Hook rating prompt after successful analysis
+      final prevCallback = analysisProv.onAnalysisComplete;
+      analysisProv.onAnalysisComplete = () {
+        prevCallback?.call();
+        // Delay slightly so the result screen has rendered before the dialog
+        Future.delayed(const Duration(milliseconds: 1200), () {
+          if (mounted) RatingDialogHelper.maybeShow(context);
+        });
+      };
 
       analysisProv.analyze(widget.imageFile);
     });

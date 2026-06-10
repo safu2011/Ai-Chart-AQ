@@ -11,6 +11,7 @@ import '../../home/screens/home_screen.dart';
 import '../../onboarding/user_guide_overlay.dart';
 import '../../paywall/paywall_screen.dart';
 import '../../providers.dart';
+import '../../rating/rating_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -100,6 +101,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             textPrimary: textPrimary,
             textMuted: textMuted,
             onTap: () => _showGuide(context),
+          ),
+          const SizedBox(height: Insets.sm),
+          _SettingsTile(
+            icon: Icons.star_outline_rounded,
+            title: 'Rate Us',
+            subtitle: 'Enjoying the app? Leave us a review',
+            iconColor: gold,
+            cardColor: cardColor,
+            borderColor: borderColor,
+            textPrimary: textPrimary,
+            textMuted: textMuted,
+            onTap: () => RatingDialogHelper.show(context),
           ),
           const SizedBox(height: Insets.sm),
           _SettingsTile(

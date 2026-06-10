@@ -12,6 +12,7 @@ import '../../../widgets/shared_widgets.dart';
 import '../../alerts/screens/alerts_screen.dart';
 import '../../analysis/screens/image_preview_screen.dart';
 import '../../charts/screens/live_chart_screen.dart';
+import '../../exit/exit_screen.dart';
 import '../../history/screens/history_screen.dart';
 import '../../onboarding/user_guide_overlay.dart';
 import '../../paywall/paywall_screen.dart';
@@ -155,34 +156,44 @@ class _HomeScreenState extends State<HomeScreen>
     final textSecondary = AppTheme.textSecondary(context);
     // context.watch<SubscriptionProvider>().setIsPro(true);
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: FadeTransition(
-        opacity: _fadeAnim,
-        child: SlideTransition(
-          position: _slideAnim,
-          child: CustomScrollView(
-            slivers: [
-              _buildSliverHeader(bgColor, borderColor, textSecondary),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: Insets.md, vertical: Insets.md),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    _buildCreditsCard(context),
-                    const SizedBox(height: Insets.md),
-                    _buildWelcomeCard(context),
-                    const SizedBox(height: Insets.lg),
-                    _buildUploadSection(context),
-                    const SizedBox(height: Insets.lg),
-                    _buildQuickActionsSection(context),
-                    const SizedBox(height: Insets.lg),
-                    const DisclaimerBanner(text: AppConstants.startupDisclaimer),
-                    const SizedBox(height: Insets.xl),
-                  ]),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ExitScreen()),
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: FadeTransition(
+          opacity: _fadeAnim,
+          child: SlideTransition(
+            position: _slideAnim,
+            child: CustomScrollView(
+              slivers: [
+                _buildSliverHeader(bgColor, borderColor, textSecondary),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: Insets.md, vertical: Insets.md),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      _buildCreditsCard(context),
+                      const SizedBox(height: Insets.md),
+                      _buildWelcomeCard(context),
+                      const SizedBox(height: Insets.lg),
+                      _buildUploadSection(context),
+                      const SizedBox(height: Insets.lg),
+                      _buildQuickActionsSection(context),
+                      const SizedBox(height: Insets.lg),
+                      const DisclaimerBanner(text: AppConstants.startupDisclaimer),
+                      const SizedBox(height: Insets.xl),
+                    ]),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
