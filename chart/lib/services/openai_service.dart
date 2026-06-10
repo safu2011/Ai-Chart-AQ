@@ -80,8 +80,12 @@ If the image is not a financial chart, set sentiment to "Neutral", sentiment_sco
 ''';
 
   /// Analyse a chart [imageFile] using GPT-4o Vision.
+  ///
   Future<ChartAnalysis> analyzeChart(File imageFile) async {
     final apiKey = AppConstants.openAiApiKey;
+    print('API Key prefix: ${apiKey.substring(0, 10)}...');
+    print('API Key length: ${apiKey.length}');
+    print("API key = $apiKey");
     if (apiKey.isEmpty || apiKey == 'YOUR_API_KEY_HERE') {
       throw Exception(
         'OpenAI API key is not configured. '
@@ -120,6 +124,8 @@ If the image is not a financial chart, set sentiment to "Neutral", sentiment_sco
       },
     );
 
+    print("Error = response.statusCode = ${response.statusCode}");
+    print("Error = response.data = ${response.data}");
     if (response.statusCode == 200) {
       final data = response.data as Map<String, dynamic>;
       String answer =
@@ -155,6 +161,7 @@ If the image is not a financial chart, set sentiment to "Neutral", sentiment_sco
         return 'Request timed out. Please check your internet connection and try again.';
       }
       final status = error.response?.statusCode;
+
       if (status == 401) {
         return 'Invalid API key. Please check the configured OpenAI key.';
       }

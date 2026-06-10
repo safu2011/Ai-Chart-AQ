@@ -56,11 +56,8 @@ class _RatingDialogState extends State<_RatingDialog> {
     if (_selectedStars == 0 || _submitting) return;
     setState(() => _submitting = true);
 
-    if (_selectedStars >= 4) {
-      await RatingService.instance.openPlayStore();
-    } else {
-      await RatingService.instance.markRated();
-    }
+    await RatingService.instance.openPlayStore();
+    await RatingService.instance.markRated();
 
     if (mounted) Navigator.of(context).pop();
   }

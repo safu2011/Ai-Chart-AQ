@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:chart/features/home/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -11,6 +12,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/chart_analysis.dart';
 import '../../../services/credits_service.dart';
 import '../../../widgets/shared_widgets.dart';
+import '../../paywall/paywall_screen.dart';
 import '../../providers.dart';
 import '../../rating/rating_dialog.dart';
 
@@ -156,6 +158,13 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                 final result = await subProv.consumeCredit();
                 if (result != CreditConsumeResult.noCredits && mounted) {
                   context.read<AnalysisProvider>().analyze(widget.imageFile);
+                }else{
+                  final purchased = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                  );
+                  if (purchased != true) Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  );
                 }
               },
               width: 160,

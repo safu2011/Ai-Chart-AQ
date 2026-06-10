@@ -302,6 +302,7 @@ class _HomeScreenState extends State<HomeScreen>
       backgroundColor: bgColor,
       pinned: true,
       expandedHeight: 0,
+      automaticallyImplyLeading: false,
       toolbarHeight: 60,
       flexibleSpace: Container(
         decoration: BoxDecoration(
