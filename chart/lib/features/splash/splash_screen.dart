@@ -229,9 +229,12 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (!mounted) return;
 
+    final subProv = context.read<SubscriptionProvider>();
+    await subProv.refresh();
+
     if (isFirstTime) {
       // First launch → show tutorial overlay
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).push(
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 600),
           pageBuilder: (_, animation, __) => FadeTransition(
@@ -239,16 +242,28 @@ class _SplashScreenState extends State<SplashScreen>
             child: const HomeScreenWithGuide(),
           ),
         ),
-      );
+      ).then((v) async {
+        if (!subProv.isPro) {
+          print("Navigating to paywall");
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => _PaywallThenHome(),
+            ),
+          );
+        } else {
+          print("Navigating to HomeScreen");
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => HomeScreen(),
+            ),
+          );
+        }
+      });
     } else {
-      // Subsequent launches → check subscription
-      // ignore: use_build_context_synchronously
-      final subProv = context.read<SubscriptionProvider>();
-      await subProv.refresh();
 
       if (!mounted) return;
 
-      if (!subProv.isPro && subProv.totalAvailable == 0) {
+      if (!subProv.isPro) {
         // No credits left → push paywall, then home on back
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(

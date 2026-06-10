@@ -9,7 +9,8 @@ import '../paywall/paywall_screen.dart';
 
 class HomeScreenWithGuide extends StatefulWidget {
   final bool showPaywallOnDismiss;
-  const HomeScreenWithGuide({super.key, this.showPaywallOnDismiss = true});
+  final bool isUserFromSettingsScreen;
+  const HomeScreenWithGuide({super.key, this.showPaywallOnDismiss = true, this.isUserFromSettingsScreen = false});
 
   @override
   State<HomeScreenWithGuide> createState() => _HomeScreenWithGuideState();
@@ -35,20 +36,7 @@ class _HomeScreenWithGuideState extends State<HomeScreenWithGuide> {
     if (mounted) setState(() => _showGuide = false);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('guide_shown', true);
-    if (!widget.showPaywallOnDismiss) return;
-    if (!mounted) return;
-    final subProv = context.read<SubscriptionProvider>();
-    await subProv.refresh();
-    if (!mounted) return;
-    if (!subProv.isPro) {
-      await Navigator.of(context).push(
-        PageRouteBuilder(
-          pageBuilder: (_, anim, __) =>
-              FadeTransition(opacity: anim, child: const PaywallScreen()),
-          transitionDuration: const Duration(milliseconds: 400),
-        ),
-      );
-    }
+    Navigator.pop(context);
   }
 
   @override

@@ -7,6 +7,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/history_repository.dart';
 import '../../../widgets/shared_widgets.dart';
+import '../../home/screens/home_screen.dart';
 import '../../onboarding/user_guide_overlay.dart';
 import '../../paywall/paywall_screen.dart';
 import '../../providers.dart';
@@ -322,7 +323,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _showGuide(BuildContext context) async {
     // Pop settings, then push the real HomeScreenWithGuide overlay
     // (same experience as first-launch, but without the paywall on dismiss)
+    Navigator.pop(context);
     if (!mounted) return;
+
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (_, anim, __) => FadeTransition(
@@ -331,9 +334,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         transitionDuration: const Duration(milliseconds: 300),
       ),
-    ).then((v){
-
-    });
+    );
   }
 
   Future<void> _clearHistory(BuildContext context) async {
