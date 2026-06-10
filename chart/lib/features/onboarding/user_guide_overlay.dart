@@ -7,15 +7,6 @@ import '../../features/providers.dart';
 import '../home/screens/home_screen.dart';
 import '../paywall/paywall_screen.dart';
 
-// ─── GlobalKeys — attached to target widgets in HomeScreen ───────────────────
-
-final GlobalKey guideKeyGallery     = GlobalKey(debugLabel: 'guide_gallery');
-final GlobalKey guidekeyCameraBtn   = GlobalKey(debugLabel: 'guide_camera');
-final GlobalKey guideKeyQuickAccess = GlobalKey(debugLabel: 'guide_quick');
-
-// ─── Wrapper: HomeScreen + overlay ───────────────────────────────────────────
-
-
 class HomeScreenWithGuide extends StatefulWidget {
   final bool showPaywallOnDismiss;
   const HomeScreenWithGuide({super.key, this.showPaywallOnDismiss = true});
@@ -26,6 +17,11 @@ class HomeScreenWithGuide extends StatefulWidget {
 
 class _HomeScreenWithGuideState extends State<HomeScreenWithGuide> {
   bool _showGuide = false;
+
+  // Keys are per-instance now — created fresh each time HomeScreenWithGuide mounts
+  final GlobalKey _guideKeyGallery     = GlobalKey(debugLabel: 'guide_gallery');
+  final GlobalKey _guidekeyCameraBtn   = GlobalKey(debugLabel: 'guide_camera');
+  final GlobalKey _guideKeyQuickAccess = GlobalKey(debugLabel: 'guide_quick');
 
   @override
   void initState() {
@@ -39,8 +35,6 @@ class _HomeScreenWithGuideState extends State<HomeScreenWithGuide> {
     if (mounted) setState(() => _showGuide = false);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('guide_shown', true);
-
-    // After tutorial, optionally show paywall for non-premium users
     if (!widget.showPaywallOnDismiss) return;
     if (!mounted) return;
     final subProv = context.read<SubscriptionProvider>();
@@ -61,13 +55,19 @@ class _HomeScreenWithGuideState extends State<HomeScreenWithGuide> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        const HomeScreen(),
+        // Pass the keys DOWN into HomeScreen so the same instances
+        // are attached to the actual widgets the overlay will measure
+        HomeScreen(
+          guideKeyGallery:     _guideKeyGallery,
+          guidekeyCameraBtn:   _guidekeyCameraBtn,
+          guideKeyQuickAccess: _guideKeyQuickAccess,
+        ),
         if (_showGuide)
           UserGuideOverlay(
             targetKeys: [
-              guideKeyGallery,
-              guidekeyCameraBtn,
-              guideKeyQuickAccess,
+              _guideKeyGallery,
+              _guidekeyCameraBtn,
+              _guideKeyQuickAccess,
             ],
             onDismiss: _dismiss,
           ),

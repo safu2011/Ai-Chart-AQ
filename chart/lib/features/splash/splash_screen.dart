@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../core/constants/app_constants.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -49,6 +50,7 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _pulseAnim;
 
   bool _showProceed = false;
+  bool _disclaimerShown = false;
 
   @override
   void initState() {
@@ -69,9 +71,9 @@ class _SplashScreenState extends State<SplashScreen>
     _taglineFade =
         CurvedAnimation(parent: _taglineCtrl, curve: Curves.easeOut);
     _taglineSlide = Tween<Offset>(
-            begin: const Offset(0, 0.3), end: Offset.zero)
+        begin: const Offset(0, 0.3), end: Offset.zero)
         .animate(
-            CurvedAnimation(parent: _taglineCtrl, curve: Curves.easeOutCubic));
+        CurvedAnimation(parent: _taglineCtrl, curve: Curves.easeOutCubic));
 
     _progressCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 6500));
@@ -107,11 +109,118 @@ class _SplashScreenState extends State<SplashScreen>
     _taglineCtrl.forward();
     _progressCtrl.forward();
 
-    // After 7 seconds total, show the button
+    // After 7 seconds total, show disclaimer then the button
     await Future.delayed(const Duration(milliseconds: 6000));
+    if (!mounted) return;
+    await _showDisclaimerIfNeeded();
     if (!mounted) return;
     setState(() => _showProceed = true);
     _buttonCtrl.forward();
+  }
+
+  Future<void> _showDisclaimerIfNeeded() async {
+    if (_disclaimerShown) return;
+    _disclaimerShown = true;
+
+    final isDark = context.read<ThemeProvider>().isDark;
+    final cardColor = isDark ? AppColorsDark.card : AppColorsLight.card;
+    final textPrimary = isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary;
+    final textSecondary = isDark ? AppColorsDark.textSecondary : AppColorsLight.textSecondary;
+    final gold = isDark ? AppColorsDark.gold : AppColorsLight.gold;
+    final bgColor = isDark ? AppColorsDark.bg : AppColorsLight.bg;
+    final borderColor = isDark ? AppColorsDark.border : AppColorsLight.border;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: cardColor,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Radii.xl)),
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  gold,
+                  isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft,
+                ]),
+                borderRadius: BorderRadius.circular(Radii.sm),
+              ),
+              child: Icon(Icons.candlestick_chart_rounded,
+                  color: bgColor, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Important Notice',
+                style: TextStyle(
+                    color: textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(Insets.sm + 4),
+              decoration: BoxDecoration(
+                color: gold.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(Radii.md),
+                border: Border.all(color: borderColor),
+              ),
+              child: Text(
+                AppConstants.startupDisclaimer,
+                style: TextStyle(
+                    fontSize: 13,
+                    color: textPrimary,
+                    height: 1.5,
+                    fontWeight: FontWeight.w500),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'This app uses OpenAI Vision to analyse chart images. '
+                  'All analyses are for educational purposes only and should '
+                  'never be treated as financial advice.',
+              style:
+              TextStyle(fontSize: 12, color: textSecondary, height: 1.5),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: Padding(
+              padding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  backgroundColor: gold,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(Radii.full)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'I Understand',
+                  style: TextStyle(
+                      color: bgColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _proceed() async {
@@ -183,9 +292,9 @@ class _SplashScreenState extends State<SplashScreen>
     final gold = isDark ? AppColorsDark.gold : AppColorsLight.gold;
     final goldSoft = isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft;
     final textPrimary =
-        isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary;
+    isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary;
     final textSecondary =
-        isDark ? AppColorsDark.textSecondary : AppColorsLight.textSecondary;
+    isDark ? AppColorsDark.textSecondary : AppColorsLight.textSecondary;
 
     return Scaffold(
       backgroundColor: bg,
@@ -488,7 +597,7 @@ class _CandleBarRow extends StatelessWidget {
       children: List.generate(heights.length, (i) {
         final delay = i / heights.length;
         final itemProgress =
-            ((progress - delay) / (1 - delay)).clamp(0.0, 1.0);
+        ((progress - delay) / (1 - delay)).clamp(0.0, 1.0);
         final color = isGreen[i]
             ? const Color(0xFF26A69A)
             : const Color(0xFFEF5350);

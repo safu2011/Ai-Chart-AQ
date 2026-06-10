@@ -19,7 +19,17 @@ import '../../providers.dart';
 import '../../settings/screens/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  // Nullable — HomeScreen still works standalone (e.g. direct push after splash)
+  final GlobalKey? guideKeyGallery;
+  final GlobalKey? guidekeyCameraBtn;
+  final GlobalKey? guideKeyQuickAccess;
+
+  const HomeScreen({
+    super.key,
+    this.guideKeyGallery,
+    this.guidekeyCameraBtn,
+    this.guideKeyQuickAccess,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -32,9 +42,19 @@ class _HomeScreenState extends State<HomeScreen>
   late Animation<Offset> _slideAnim;
   StreamSubscription? _intentSub;
 
+  late final GlobalKey _guideKeyGallery;
+  late final GlobalKey _guidekeyCameraBtn;
+  late final GlobalKey _guideKeyQuickAccess;
+
   @override
   void initState() {
     super.initState();
+
+    _guideKeyGallery     = widget.guideKeyGallery     ?? GlobalKey(debugLabel: 'guide_gallery');
+    _guidekeyCameraBtn   = widget.guidekeyCameraBtn   ?? GlobalKey(debugLabel: 'guide_camera');
+    _guideKeyQuickAccess = widget.guideKeyQuickAccess ?? GlobalKey(debugLabel: 'guide_quick');
+
+
     _animCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 700));
     _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
@@ -400,7 +420,7 @@ class _HomeScreenState extends State<HomeScreen>
         GestureDetector(
           onTap: () => _pickImage(ImageSource.gallery),
           child: Container(
-            key: guideKeyGallery,
+            key: _guideKeyGallery,
             width: double.infinity, height: 140,
             decoration: BoxDecoration(
               color: cardColor,
@@ -430,7 +450,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         const SizedBox(height: Insets.sm),
         SizedBox(
-          key: guidekeyCameraBtn,
+          key: _guidekeyCameraBtn,
           width: double.infinity,
           height: 50,
           child: GradientButton(
@@ -452,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen>
       children: [
         const SectionHeader(title: 'Quick Access'),
         const SizedBox(height: Insets.md),
-        Row(key: guideKeyQuickAccess, children: [
+        Row(key: _guideKeyQuickAccess, children: [
           Expanded(
             child: _ActionCard(
               icon: Icons.candlestick_chart_rounded,

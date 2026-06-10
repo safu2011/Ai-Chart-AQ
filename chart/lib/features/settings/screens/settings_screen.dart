@@ -323,8 +323,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Pop settings, then push the real HomeScreenWithGuide overlay
     // (same experience as first-launch, but without the paywall on dismiss)
     if (!mounted) return;
-    Navigator.of(context).pop();
-    if (!mounted) return;
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (_, anim, __) => FadeTransition(
@@ -333,7 +331,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         transitionDuration: const Duration(milliseconds: 300),
       ),
-    );
+    ).then((v){
+
+    });
   }
 
   Future<void> _clearHistory(BuildContext context) async {
