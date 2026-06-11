@@ -5,18 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_theme.dart';
 import '../../features/providers.dart';
 import '../home/screens/home_screen.dart';
-
-// ─── GlobalKeys — attached to target widgets in HomeScreen ───────────────────
-
-final GlobalKey guideKeyGallery     = GlobalKey(debugLabel: 'guide_gallery');
-final GlobalKey guidekeyCameraBtn   = GlobalKey(debugLabel: 'guide_camera');
-final GlobalKey guideKeyQuickAccess = GlobalKey(debugLabel: 'guide_quick');
-
-// ─── Wrapper: HomeScreen + overlay ───────────────────────────────────────────
-
+import '../paywall/paywall_screen.dart';
 
 class HomeScreenWithGuide extends StatefulWidget {
-  const HomeScreenWithGuide({super.key});
+  final bool showPaywallOnDismiss;
+  final bool isUserFromSettingsScreen;
+  const HomeScreenWithGuide({super.key, this.showPaywallOnDismiss = true, this.isUserFromSettingsScreen = false});
 
   @override
   State<HomeScreenWithGuide> createState() => _HomeScreenWithGuideState();
@@ -24,6 +18,11 @@ class HomeScreenWithGuide extends StatefulWidget {
 
 class _HomeScreenWithGuideState extends State<HomeScreenWithGuide> {
   bool _showGuide = false;
+
+  // Keys are per-instance now — created fresh each time HomeScreenWithGuide mounts
+  final GlobalKey _guideKeyGallery     = GlobalKey(debugLabel: 'guide_gallery');
+  final GlobalKey _guidekeyCameraBtn   = GlobalKey(debugLabel: 'guide_camera');
+  final GlobalKey _guideKeyQuickAccess = GlobalKey(debugLabel: 'guide_quick');
 
   @override
   void initState() {
@@ -37,19 +36,26 @@ class _HomeScreenWithGuideState extends State<HomeScreenWithGuide> {
     if (mounted) setState(() => _showGuide = false);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('guide_shown', true);
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        const HomeScreen(),
+        // Pass the keys DOWN into HomeScreen so the same instances
+        // are attached to the actual widgets the overlay will measure
+        HomeScreen(
+          guideKeyGallery:     _guideKeyGallery,
+          guidekeyCameraBtn:   _guidekeyCameraBtn,
+          guideKeyQuickAccess: _guideKeyQuickAccess,
+        ),
         if (_showGuide)
           UserGuideOverlay(
             targetKeys: [
-              guideKeyGallery,
-              guidekeyCameraBtn,
-              guideKeyQuickAccess,
+              _guideKeyGallery,
+              _guidekeyCameraBtn,
+              _guideKeyQuickAccess,
             ],
             onDismiss: _dismiss,
           ),
@@ -524,7 +530,7 @@ class _UserGuideOverlayState extends State<UserGuideOverlay>
                                 ),
                                 child: Text(
                                   _step == _steps.length - 1
-                                      ? 'Start Trading'
+                                      ? 'Start Analyzing'
                                       : 'Next',
                                   style: TextStyle(
                                     color: bg,

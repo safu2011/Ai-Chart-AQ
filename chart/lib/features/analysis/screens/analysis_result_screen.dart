@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:chart/features/home/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -11,7 +12,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/chart_analysis.dart';
 import '../../../services/credits_service.dart';
 import '../../../widgets/shared_widgets.dart';
+import '../../paywall/paywall_screen.dart';
 import '../../providers.dart';
+import '../../rating/rating_dialog.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
   final File imageFile;
@@ -38,6 +41,16 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
         return;
       }
 
+      // Hook rating prompt after successful analysis
+      final prevCallback = analysisProv.onAnalysisComplete;
+      analysisProv.onAnalysisComplete = () {
+        prevCallback?.call();
+        // Delay slightly so the result screen has rendered before the dialog
+        Future.delayed(const Duration(milliseconds: 1200), () {
+          if (mounted) RatingDialogHelper.maybeShow(context);
+        });
+      };
+
       analysisProv.analyze(widget.imageFile);
     });
   }
@@ -50,7 +63,8 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
       backgroundColor: AppTheme.bgColor(context),
       appBar: AppTopBar(
         title: 'AI Analysis',
-        actions: state is AnalysisSuccess
+        actions: (state is AnalysisSuccess &&
+                !(state as AnalysisSuccess).result.isInvalidImage)
             ? [
                 IconButton(
                   icon: const Icon(Icons.share_outlined,
@@ -144,6 +158,13 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                 final result = await subProv.consumeCredit();
                 if (result != CreditConsumeResult.noCredits && mounted) {
                   context.read<AnalysisProvider>().analyze(widget.imageFile);
+                }else{
+                  final purchased = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                  );
+                  if (purchased != true) Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  );
                 }
               },
               width: 160,
@@ -159,7 +180,18 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
     );
   }
 
+  Widget _buildInvalidImageUI(ChartAnalysis result) {
+    return _InvalidImageView(
+      imageFile: widget.imageFile,
+      message: result.summary.isNotEmpty ? result.summary : 'Please upload a valid financial chart image.',
+      onBack: () => Navigator.of(context).pop(),
+    );
+  }
+
   Widget _buildResult(ChartAnalysis result) {
+    // Show dedicated invalid-image UI
+    if (result.isInvalidImage) return _buildInvalidImageUI(result);
+
     return SingleChildScrollView(
       key: const ValueKey('result'),
       padding: const EdgeInsets.all(Insets.md),
@@ -329,10 +361,14 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
   }
 
   void _share(ChartAnalysis result) {
+    // Strip any disclaimer already embedded in rawMarkdown to avoid duplication
+    final cleanRaw = result.rawMarkdown
+        .replaceAll(AppConstants.disclaimer, '')
+        .trimRight();
     final text = '${AppConstants.appName} — AI Chart Analysis\n'
         '${result.pair} | ${result.assetType} | ${result.sentiment}\n'
         'Generated: ${_formatDate(result.timestamp)}\n\n'
-        '${result.rawMarkdown}\n\n---\n${AppConstants.disclaimer}';
+        '$cleanRaw\n\n---\n${AppConstants.disclaimer}';
     Share.share(text, subject: '${result.pair} Chart Analysis');
   }
 
@@ -420,6 +456,183 @@ class _ActionBtn extends StatelessWidget {
             const SizedBox(width: 6),
             Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Invalid Image View ────────────────────────────────────────────────────────
+
+class _InvalidImageView extends StatefulWidget {
+  final File imageFile;
+  final String message;
+  final VoidCallback onBack;
+
+  const _InvalidImageView({
+    required this.imageFile,
+    required this.message,
+    required this.onBack,
+  });
+
+  @override
+  State<_InvalidImageView> createState() => _InvalidImageViewState();
+}
+
+class _InvalidImageViewState extends State<_InvalidImageView>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+  late Animation<double> _fade;
+  late Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 700));
+    _scale = Tween<double>(begin: 0.7, end: 1.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut));
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slide = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      key: const ValueKey('invalid'),
+      child: Padding(
+        padding: const EdgeInsets.all(Insets.xl),
+        child: FadeTransition(
+          opacity: _fade,
+          child: SlideTransition(
+            position: _slide,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Animated warning icon
+                ScaleTransition(
+                  scale: _scale,
+                  child: Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      color: AppColors.gold.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.gold.withOpacity(0.35), width: 2),
+                    ),
+                    child: const Icon(Icons.image_not_supported_rounded,
+                        color: AppColors.gold, size: 40),
+                  ),
+                ),
+                const SizedBox(height: Insets.lg),
+                const Text(
+                  'Invalid Chart Image',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: Insets.sm),
+                Container(
+                  padding: const EdgeInsets.all(Insets.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(Radii.lg),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    children: [
+                      // Thumbnail of uploaded image
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(Radii.md),
+                        child: Image.file(widget.imageFile,
+                            height: 100,
+                            width: double.infinity,
+                            fit: BoxFit.cover),
+                      ),
+                      const SizedBox(height: Insets.md),
+                      Text(
+                        widget.message,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                            height: 1.5),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: Insets.lg),
+                Container(
+                  padding: const EdgeInsets.all(Insets.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.gold.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(Radii.md),
+                    border: Border.all(color: AppColors.gold.withOpacity(0.2)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.lightbulb_outline_rounded,
+                              size: 14, color: AppColors.gold),
+                          SizedBox(width: 6),
+                          Text('Tips for a valid chart:',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.gold)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...[
+                        'Upload a candlestick, line, or bar chart',
+                        'Ensure the chart shows price/time data',
+                        'Crypto, Forex, or Stock charts work best',
+                        'Screenshot from TradingView, Binance, etc.',
+                      ].map((tip) => Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('• ',
+                                    style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 12)),
+                                Expanded(
+                                  child: Text(tip,
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                          height: 1.4)),
+                                ),
+                              ],
+                            ),
+                          )),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: Insets.lg),
+                GradientButton(
+                  label: 'Try Another Image',
+                  icon: const Icon(Icons.add_photo_alternate_outlined,
+                      color: AppColors.bg, size: 16),
+                  onTap: widget.onBack,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

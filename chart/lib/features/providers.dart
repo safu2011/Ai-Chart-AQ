@@ -91,6 +91,7 @@ class AnalysisProvider extends ChangeNotifier {
       onAnalysisComplete?.call();
       _state = AnalysisSuccess(result);
     } catch (e) {
+      print("Error = ${e}");
       _state = AnalysisError(OpenAiService.friendlyError(e));
     }
     notifyListeners();

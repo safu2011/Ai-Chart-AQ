@@ -5,18 +5,16 @@ import '../core/constants/app_constants.dart';
 /// Manages the analysis credit system.
 ///
 /// Logic:
-///   - Free users get [AppConstants.freeAnalysesPerDay] analyses per calendar day.
+///   - Free users get [AppConstants.freeAnalysesTotal] analyses ONE TIME ever
+///     (not per day). Once exhausted they must purchase credits or subscribe.
 ///   - Paid credit packs add to [_paidCredits] stored in SharedPreferences.
 ///   - Pro subscribers bypass all credit checks.
-///
-/// The daily counter resets at midnight local time.
 class CreditsService {
   static final CreditsService instance = CreditsService._();
   CreditsService._();
 
-  static const _kPaidCredits   = 'paid_credits';
-  static const _kDailyCount    = 'daily_count';
-  static const _kLastResetDate = 'last_reset_date';
+  static const _kPaidCredits    = 'paid_credits';
+  static const _kFreeUsed       = 'free_used_total';  // lifetime counter
 
   // ── Queries ───────────────────────────────────────────────────────────────
 
@@ -26,17 +24,16 @@ class CreditsService {
     return p.getInt(_kPaidCredits) ?? 0;
   }
 
-  /// Returns how many free analyses have been used today.
-  Future<int> getDailyUsed() async {
+  /// Returns how many free lifetime analyses have been used.
+  Future<int> getFreeUsed() async {
     final p = await SharedPreferences.getInstance();
-    await _resetDailyIfNeeded(p);
-    return p.getInt(_kDailyCount) ?? 0;
+    return p.getInt(_kFreeUsed) ?? 0;
   }
 
-  /// Returns remaining free analyses for today.
+  /// Returns remaining free analyses (lifetime total, never resets).
   Future<int> getFreeRemaining() async {
-    final used = await getDailyUsed();
-    return (AppConstants.freeAnalysesPerDay - used).clamp(0, AppConstants.freeAnalysesPerDay);
+    final used = await getFreeUsed();
+    return (AppConstants.freeAnalysesTotal - used).clamp(0, AppConstants.freeAnalysesTotal);
   }
 
   /// Returns true when the user can run an analysis (free slot OR paid credits),
@@ -59,13 +56,11 @@ class CreditsService {
     if (isPro) return CreditConsumeResult.pro;
 
     final p = await SharedPreferences.getInstance();
-    await _resetDailyIfNeeded(p);
-
-    final dailyUsed  = p.getInt(_kDailyCount) ?? 0;
+    final freeUsed    = p.getInt(_kFreeUsed) ?? 0;
     final paidCredits = p.getInt(_kPaidCredits) ?? 0;
 
-    if (dailyUsed < AppConstants.freeAnalysesPerDay) {
-      await p.setInt(_kDailyCount, dailyUsed + 1);
+    if (freeUsed < AppConstants.freeAnalysesTotal) {
+      await p.setInt(_kFreeUsed, freeUsed + 1);
       return CreditConsumeResult.freeSlot;
     }
 
@@ -84,27 +79,11 @@ class CreditsService {
     final current = p.getInt(_kPaidCredits) ?? 0;
     await p.setInt(_kPaidCredits, current + amount);
   }
-
-  // ── Internal ──────────────────────────────────────────────────────────────
-
-  Future<void> _resetDailyIfNeeded(SharedPreferences p) async {
-    final todayStr = _todayString();
-    final lastReset = p.getString(_kLastResetDate) ?? '';
-    if (lastReset != todayStr) {
-      await p.setInt(_kDailyCount, 0);
-      await p.setString(_kLastResetDate, todayStr);
-    }
-  }
-
-  String _todayString() {
-    final now = DateTime.now();
-    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-  }
 }
 
 enum CreditConsumeResult {
   pro,        // Pro subscriber — unlimited
-  freeSlot,   // Used a free daily slot
+  freeSlot,   // Used a free lifetime slot
   paidCredit, // Used a paid credit
   noCredits,  // No credits available — show paywall
 }

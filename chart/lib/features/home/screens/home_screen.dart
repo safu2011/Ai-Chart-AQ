@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
@@ -10,6 +12,7 @@ import '../../../widgets/shared_widgets.dart';
 import '../../alerts/screens/alerts_screen.dart';
 import '../../analysis/screens/image_preview_screen.dart';
 import '../../charts/screens/live_chart_screen.dart';
+import '../../exit/exit_screen.dart';
 import '../../history/screens/history_screen.dart';
 import '../../onboarding/user_guide_overlay.dart';
 import '../../paywall/paywall_screen.dart';
@@ -17,7 +20,17 @@ import '../../providers.dart';
 import '../../settings/screens/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  // Nullable — HomeScreen still works standalone (e.g. direct push after splash)
+  final GlobalKey? guideKeyGallery;
+  final GlobalKey? guidekeyCameraBtn;
+  final GlobalKey? guideKeyQuickAccess;
+
+  const HomeScreen({
+    super.key,
+    this.guideKeyGallery,
+    this.guidekeyCameraBtn,
+    this.guideKeyQuickAccess,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -28,10 +41,21 @@ class _HomeScreenState extends State<HomeScreen>
   late AnimationController _animCtrl;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
+  StreamSubscription? _intentSub;
+
+  late final GlobalKey _guideKeyGallery;
+  late final GlobalKey _guidekeyCameraBtn;
+  late final GlobalKey _guideKeyQuickAccess;
 
   @override
   void initState() {
     super.initState();
+
+    _guideKeyGallery     = widget.guideKeyGallery     ?? GlobalKey(debugLabel: 'guide_gallery');
+    _guidekeyCameraBtn   = widget.guidekeyCameraBtn   ?? GlobalKey(debugLabel: 'guide_camera');
+    _guideKeyQuickAccess = widget.guideKeyQuickAccess ?? GlobalKey(debugLabel: 'guide_quick');
+
+
     _animCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 700));
     _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
@@ -40,10 +64,59 @@ class _HomeScreenState extends State<HomeScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
     _animCtrl.forward();
+    _initSharingIntent();
+  }
+
+  void _initSharingIntent() {
+    // Handle media when app is already running (foreground)
+    _intentSub = ReceiveSharingIntent.instance.getMediaStream().listen(
+      (List<SharedMediaFile> files) {
+        if (files.isNotEmpty) {
+          final path = files.first.path;
+          _handleSharedImagePath(path);
+        }
+      },
+      onError: (_) {},
+    );
+
+    // Handle media when app is launched via share intent (cold start)
+    ReceiveSharingIntent.instance.getInitialMedia().then(
+      (List<SharedMediaFile> files) {
+        if (files.isNotEmpty) {
+          final path = files.first.path;
+          ReceiveSharingIntent.instance.reset();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _handleSharedImagePath(path);
+          });
+        }
+      },
+    );
+  }
+
+  Future<void> _handleSharedImagePath(String path) async {
+    final file = File(path);
+    if (!await file.exists()) return;
+    final subProv = context.read<SubscriptionProvider>();
+    final canAnalyze = await subProv.canAnalyze();
+    if (!canAnalyze && mounted) {
+      final purchased = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      );
+      if (purchased != true) return;
+      final canNow = await subProv.canAnalyze();
+      if (!canNow || !mounted) return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ImagePreviewScreen(imageFile: file),
+      ),
+    );
   }
 
   @override
   void dispose() {
+    _intentSub?.cancel();
     _animCtrl.dispose();
     super.dispose();
   }
@@ -83,34 +156,44 @@ class _HomeScreenState extends State<HomeScreen>
     final textSecondary = AppTheme.textSecondary(context);
     // context.watch<SubscriptionProvider>().setIsPro(true);
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: FadeTransition(
-        opacity: _fadeAnim,
-        child: SlideTransition(
-          position: _slideAnim,
-          child: CustomScrollView(
-            slivers: [
-              _buildSliverHeader(bgColor, borderColor, textSecondary),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: Insets.md, vertical: Insets.md),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    _buildCreditsCard(context),
-                    const SizedBox(height: Insets.md),
-                    _buildWelcomeCard(context),
-                    const SizedBox(height: Insets.lg),
-                    _buildUploadSection(context),
-                    const SizedBox(height: Insets.lg),
-                    _buildQuickActionsSection(context),
-                    const SizedBox(height: Insets.lg),
-                    const DisclaimerBanner(text: AppConstants.startupDisclaimer),
-                    const SizedBox(height: Insets.xl),
-                  ]),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ExitScreen()),
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: FadeTransition(
+          opacity: _fadeAnim,
+          child: SlideTransition(
+            position: _slideAnim,
+            child: CustomScrollView(
+              slivers: [
+                _buildSliverHeader(bgColor, borderColor, textSecondary),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: Insets.md, vertical: Insets.md),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      _buildCreditsCard(context),
+                      const SizedBox(height: Insets.md),
+                      _buildWelcomeCard(context),
+                      const SizedBox(height: Insets.lg),
+                      _buildUploadSection(context),
+                      const SizedBox(height: Insets.lg),
+                      _buildQuickActionsSection(context),
+                      const SizedBox(height: Insets.lg),
+                      const DisclaimerBanner(text: AppConstants.startupDisclaimer),
+                      const SizedBox(height: Insets.xl),
+                    ]),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -184,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                   Text(
                     freeLeft > 0
-                        ? '$freeLeft free today${paidLeft > 0 ? ' + $paidLeft credits' : ''}'
+                        ? '$freeLeft free ${freeLeft == 1 ? 'analysis' : 'analyses'} remaining${paidLeft > 0 ? ' + $paidLeft credits' : ''}'
                         : paidLeft > 0
                             ? '$paidLeft paid credits remaining'
                             : 'No analyses left — tap to get more',
@@ -219,6 +302,7 @@ class _HomeScreenState extends State<HomeScreen>
       backgroundColor: bgColor,
       pinned: true,
       expandedHeight: 0,
+      automaticallyImplyLeading: false,
       toolbarHeight: 60,
       flexibleSpace: Container(
         decoration: BoxDecoration(
@@ -318,9 +402,15 @@ class _HomeScreenState extends State<HomeScreen>
           const SizedBox(height: Insets.lg),
           Row(children: [
             _StatChip(label: 'Patterns', icon: Icons.pattern),
-            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text('·', style: TextStyle(color: AppTheme.textSecondary(context), fontSize: 14)),
+            ),
             _StatChip(label: 'Levels', icon: Icons.horizontal_rule_rounded),
-            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text('·', style: TextStyle(color: AppTheme.textSecondary(context), fontSize: 14)),
+            ),
             _StatChip(label: 'Signals', icon: Icons.bolt_rounded),
           ]),
         ],
@@ -342,7 +432,7 @@ class _HomeScreenState extends State<HomeScreen>
         GestureDetector(
           onTap: () => _pickImage(ImageSource.gallery),
           child: Container(
-            key: guideKeyGallery,
+            key: _guideKeyGallery,
             width: double.infinity, height: 140,
             decoration: BoxDecoration(
               color: cardColor,
@@ -372,7 +462,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         const SizedBox(height: Insets.sm),
         SizedBox(
-          key: guidekeyCameraBtn,
+          key: _guidekeyCameraBtn,
           width: double.infinity,
           height: 50,
           child: GradientButton(
@@ -394,7 +484,7 @@ class _HomeScreenState extends State<HomeScreen>
       children: [
         const SectionHeader(title: 'Quick Access'),
         const SizedBox(height: Insets.md),
-        Row(key: guideKeyQuickAccess, children: [
+        Row(key: _guideKeyQuickAccess, children: [
           Expanded(
             child: _ActionCard(
               icon: Icons.candlestick_chart_rounded,
@@ -473,20 +563,20 @@ class _StatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppTheme.neutral(context),
-        borderRadius: BorderRadius.circular(Radii.full),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: AppTheme.textSecondary(context)),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary(context), fontWeight: FontWeight.w500)),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: AppTheme.textSecondary(context)),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: AppTheme.textSecondary(context),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../core/constants/app_constants.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,6 +9,7 @@ import '../../core/theme/app_theme.dart';
 import '../../features/providers.dart';
 import '../home/screens/home_screen.dart';
 import '../onboarding/user_guide_overlay.dart';
+import '../paywall/paywall_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -48,6 +50,7 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _pulseAnim;
 
   bool _showProceed = false;
+  bool _disclaimerShown = false;
 
   @override
   void initState() {
@@ -68,9 +71,9 @@ class _SplashScreenState extends State<SplashScreen>
     _taglineFade =
         CurvedAnimation(parent: _taglineCtrl, curve: Curves.easeOut);
     _taglineSlide = Tween<Offset>(
-            begin: const Offset(0, 0.3), end: Offset.zero)
+        begin: const Offset(0, 0.3), end: Offset.zero)
         .animate(
-            CurvedAnimation(parent: _taglineCtrl, curve: Curves.easeOutCubic));
+        CurvedAnimation(parent: _taglineCtrl, curve: Curves.easeOutCubic));
 
     _progressCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 6500));
@@ -106,11 +109,118 @@ class _SplashScreenState extends State<SplashScreen>
     _taglineCtrl.forward();
     _progressCtrl.forward();
 
-    // After 7 seconds total, show the button
+    // After 7 seconds total, show disclaimer then the button
     await Future.delayed(const Duration(milliseconds: 6000));
+    if (!mounted) return;
+    await _showDisclaimerIfNeeded();
     if (!mounted) return;
     setState(() => _showProceed = true);
     _buttonCtrl.forward();
+  }
+
+  Future<void> _showDisclaimerIfNeeded() async {
+    if (_disclaimerShown) return;
+    _disclaimerShown = true;
+
+    final isDark = context.read<ThemeProvider>().isDark;
+    final cardColor = isDark ? AppColorsDark.card : AppColorsLight.card;
+    final textPrimary = isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary;
+    final textSecondary = isDark ? AppColorsDark.textSecondary : AppColorsLight.textSecondary;
+    final gold = isDark ? AppColorsDark.gold : AppColorsLight.gold;
+    final bgColor = isDark ? AppColorsDark.bg : AppColorsLight.bg;
+    final borderColor = isDark ? AppColorsDark.border : AppColorsLight.border;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: cardColor,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Radii.xl)),
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  gold,
+                  isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft,
+                ]),
+                borderRadius: BorderRadius.circular(Radii.sm),
+              ),
+              child: Icon(Icons.candlestick_chart_rounded,
+                  color: bgColor, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Important Notice',
+                style: TextStyle(
+                    color: textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(Insets.sm + 4),
+              decoration: BoxDecoration(
+                color: gold.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(Radii.md),
+                border: Border.all(color: borderColor),
+              ),
+              child: Text(
+                AppConstants.startupDisclaimer,
+                style: TextStyle(
+                    fontSize: 13,
+                    color: textPrimary,
+                    height: 1.5,
+                    fontWeight: FontWeight.w500),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'This app uses OpenAI Vision to analyse chart images. '
+                  'All analyses are for educational purposes only and should '
+                  'never be treated as financial advice.',
+              style:
+              TextStyle(fontSize: 12, color: textSecondary, height: 1.5),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: Padding(
+              padding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  backgroundColor: gold,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(Radii.full)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'I Understand',
+                  style: TextStyle(
+                      color: bgColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _proceed() async {
@@ -118,19 +228,64 @@ class _SplashScreenState extends State<SplashScreen>
     final isFirstTime = !(prefs.getBool('guide_shown') ?? false);
 
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 600),
-        pageBuilder: (_, animation, __) {
-          return FadeTransition(
+
+    final subProv = context.read<SubscriptionProvider>();
+    await subProv.refresh();
+
+    if (isFirstTime) {
+      // First launch → show tutorial overlay
+      Navigator.of(context).push(
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 600),
+          pageBuilder: (_, animation, __) => FadeTransition(
             opacity: animation,
-            child: isFirstTime
-                ? const HomeScreenWithGuide()
-                : const HomeScreen(),
+            child: const HomeScreenWithGuide(),
+          ),
+        ),
+      ).then((v) async {
+        if (!subProv.isPro) {
+          print("Navigating to paywall");
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => _PaywallThenHome(),
+            ),
           );
-        },
-      ),
-    );
+        } else {
+          print("Navigating to HomeScreen");
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => HomeScreen(),
+            ),
+          );
+        }
+      });
+    } else {
+
+      if (!mounted) return;
+
+      if (!subProv.isPro) {
+        // No credits left → push paywall, then home on back
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            transitionDuration: const Duration(milliseconds: 600),
+            pageBuilder: (_, animation, __) => FadeTransition(
+              opacity: animation,
+              child: const _PaywallThenHome(),
+            ),
+          ),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            transitionDuration: const Duration(milliseconds: 600),
+            pageBuilder: (_, animation, __) => FadeTransition(
+              opacity: animation,
+              child: const HomeScreen(),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -152,9 +307,9 @@ class _SplashScreenState extends State<SplashScreen>
     final gold = isDark ? AppColorsDark.gold : AppColorsLight.gold;
     final goldSoft = isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft;
     final textPrimary =
-        isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary;
+    isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary;
     final textSecondary =
-        isDark ? AppColorsDark.textSecondary : AppColorsLight.textSecondary;
+    isDark ? AppColorsDark.textSecondary : AppColorsLight.textSecondary;
 
     return Scaffold(
       backgroundColor: bg,
@@ -457,7 +612,7 @@ class _CandleBarRow extends StatelessWidget {
       children: List.generate(heights.length, (i) {
         final delay = i / heights.length;
         final itemProgress =
-            ((progress - delay) / (1 - delay)).clamp(0.0, 1.0);
+        ((progress - delay) / (1 - delay)).clamp(0.0, 1.0);
         final color = isGreen[i]
             ? const Color(0xFF26A69A)
             : const Color(0xFFEF5350);
@@ -559,4 +714,55 @@ class _DashedCirclePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DashedCirclePainter old) => false;
+}
+
+// ── PaywallThenHome ───────────────────────────────────────────────────────────
+/// Shown on 2nd+ launch when user has no credits.
+/// Displays the paywall first; pressing back reveals the HomeScreen underneath.
+
+class _PaywallThenHome extends StatelessWidget {
+  const _PaywallThenHome();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        const HomeScreen(),
+        const _ImmediatePaywall(),
+      ],
+    );
+  }
+}
+
+class _ImmediatePaywall extends StatefulWidget {
+  const _ImmediatePaywall();
+
+  @override
+  State<_ImmediatePaywall> createState() => _ImmediatePaywallState();
+}
+
+class _ImmediatePaywallState extends State<_ImmediatePaywall> {
+  bool _visible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _push());
+  }
+
+  Future<void> _push() async {
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, anim, __) =>
+            FadeTransition(opacity: anim, child: const PaywallScreen()),
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
+    );
+    // After paywall is dismissed (back), hide this overlay — HomeScreen shows
+    if (mounted) setState(() => _visible = false);
+  }
+
+  @override
+  Widget build(BuildContext context) => _visible ? const SizedBox.shrink() : const SizedBox.shrink();
 }
