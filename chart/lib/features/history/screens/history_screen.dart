@@ -381,6 +381,7 @@ class _AnalysisDetailSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: Insets.md),
+
             ClipRRect(
               borderRadius: BorderRadius.circular(Radii.md),
               child: Image.file(file,
