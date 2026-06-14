@@ -20,23 +20,43 @@ class AppConstants {
   static const binanceKlinesEndpoint = '/klines';
 
   // ── RevenueCat ─────────────────────────────────────────────────────────────
-  // Replace with your actual RevenueCat API keys from dashboard.revenuecat.com
   static const revenueCatApiKeyAndroid = 'goog_IKxQVdvoKfNxhqifVJQqKmkpSsz';
   static const revenueCatApiKeyIos = 'YOUR_REVENUECAT_IOS_KEY';
 
-  // Entitlement identifier — set in RevenueCat dashboard
+  // Entitlement identifier — must match RevenueCat dashboard
   static const rcProEntitlement = 'pro';
 
-  // Product identifiers — must match Google Play / App Store exactly
-  static const rcMonthlySubId   = 'ai_chart_pro_monthly';   // $4.99/month
-  static const rcPack10Id       = 'ai_chart_credits_10';    // $0.99
-  static const rcPack50Id       = 'ai_chart_credits_50';    // $3.99
-  static const rcPack200Id      = 'ai_chart_credits_200';   // $9.99
+  // Offering identifier — matches the "pro" offering in RevenueCat dashboard
+  static const rcOfferingId = 'pro';
 
-  // Credit amounts per product
-  static const creditsInPack10  = 10;
-  static const creditsInPack50  = 50;
-  static const creditsInPack200 = 200;
+  // ── Subscription Product IDs (match Google Play / App Store exactly) ───────
+  // These are the base plan IDs as shown in RevenueCat: "productId:basePlanId"
+  static const rcWeeklySubId  = 'weekly:weekly';   // $5.00/week
+  static const rcMonthlySubId = 'monthly:monthly'; // $17.00/month
+  static const rcYearlySubId  = 'yearly:yearly';   // $190.00/year
+
+  // ── Credit System ──────────────────────────────────────────────────────────
+  // Pricing model:
+  //   • 1 analysis = 3 API hits = $0.06 charged to user
+  //   • API cost to us: 3 hits × $0.02/3-hits = $0.02 → we charge $0.06
+  //   • 1 credit = 1 API hit = $0.02 cost / $0.06 revenue
+  //   • 1 analysis consumes 3 credits
+  //
+  // Subscription monthly credit allowances (credits = API hits):
+  //   Weekly  ($5.00/wk  ≈ $21.67/mo): ~360 credits/month  → ~120 analyses
+  //   Monthly ($17.00/mo)             : ~850 credits/month  → ~283 analyses
+  //   Yearly  ($190.00/yr ≈ $15.83/mo): ~790 credits/month  → ~263 analyses
+  //
+  // We store subscription credits separately from legacy paid credits.
+  // Credits are refreshed each billing period via subscription status check.
+
+  /// Number of API hits (credits) consumed per analysis call.
+  static const creditsPerAnalysis = 3;
+
+  // Monthly credit grants per subscription tier
+  static const weeklyCreditsPerCycle  = 84;   // ~28 analyses/week (4 weeks = 336/month)
+  static const monthlyCreditsPerCycle = 850;  // ~283 analyses/month
+  static const yearlyCreditsPerCycle  = 9500; // ~263 analyses/month × 12 = 3160/yr (generous annual)
 
   // Free tier — ONE-TIME lifetime free analyses (not per day)
   static const freeAnalysesTotal = 3;
@@ -44,12 +64,10 @@ class AppConstants {
   static const freeAnalysesPerDay = freeAnalysesTotal;
 
   // ── AdMob ──────────────────────────────────────────────────────────────────
-  // Replace with real Ad Unit IDs from https://admob.google.com
-  // These are test IDs — use test IDs during development ONLY.
-  static const admobBannerAndroid = 'ca-app-pub-3940256099942544/6300978111'; // test
-  static const admobBannerIos     = 'ca-app-pub-3940256099942544/2934735716'; // test
-  static const admobInterstitialAndroid = 'ca-app-pub-3940256099942544/1033173712'; // test
-  static const admobInterstitialIos     = 'ca-app-pub-3940256099942544/4411468910'; // test
+  static const admobBannerAndroid = 'ca-app-pub-3940256099942544/6300978111';
+  static const admobBannerIos     = 'ca-app-pub-3940256099942544/2934735716';
+  static const admobInterstitialAndroid = 'ca-app-pub-3940256099942544/1033173712';
+  static const admobInterstitialIos     = 'ca-app-pub-3940256099942544/4411468910';
 
   // ── Crypto Pairs ───────────────────────────────────────────────────────────
   static const cryptoPairs = [

@@ -20,7 +20,6 @@ import '../../providers.dart';
 import '../../settings/screens/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  // Nullable — HomeScreen still works standalone (e.g. direct push after splash)
   final GlobalKey? guideKeyGallery;
   final GlobalKey? guidekeyCameraBtn;
   final GlobalKey? guideKeyQuickAccess;
@@ -55,7 +54,6 @@ class _HomeScreenState extends State<HomeScreen>
     _guidekeyCameraBtn   = widget.guidekeyCameraBtn   ?? GlobalKey(debugLabel: 'guide_camera');
     _guideKeyQuickAccess = widget.guideKeyQuickAccess ?? GlobalKey(debugLabel: 'guide_quick');
 
-
     _animCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 700));
     _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
@@ -68,20 +66,15 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _initSharingIntent() {
-    // Handle media when app is already running (foreground)
     _intentSub = ReceiveSharingIntent.instance.getMediaStream().listen(
-      (List<SharedMediaFile> files) {
-        if (files.isNotEmpty) {
-          final path = files.first.path;
-          _handleSharedImagePath(path);
-        }
+          (List<SharedMediaFile> files) {
+        if (files.isNotEmpty) _handleSharedImagePath(files.first.path);
       },
       onError: (_) {},
     );
 
-    // Handle media when app is launched via share intent (cold start)
     ReceiveSharingIntent.instance.getInitialMedia().then(
-      (List<SharedMediaFile> files) {
+          (List<SharedMediaFile> files) {
         if (files.isNotEmpty) {
           final path = files.first.path;
           ReceiveSharingIntent.instance.reset();
@@ -108,9 +101,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
     if (!mounted) return;
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ImagePreviewScreen(imageFile: file),
-      ),
+      MaterialPageRoute(builder: (_) => ImagePreviewScreen(imageFile: file)),
     );
   }
 
@@ -124,22 +115,20 @@ class _HomeScreenState extends State<HomeScreen>
   // ── Credit-gated image pick ───────────────────────────────────────────────
 
   Future<void> _pickImage(ImageSource source) async {
-    final subProv = context.read<SubscriptionProvider>();
+    final subProv    = context.read<SubscriptionProvider>();
     final canAnalyze = await subProv.canAnalyze();
 
     if (!canAnalyze && mounted) {
-      // Show paywall
       final purchased = await Navigator.of(context).push<bool>(
         MaterialPageRoute(builder: (_) => const PaywallScreen()),
       );
-      if (purchased != true) return; // User did not buy
-      // Re-check after purchase
+      if (purchased != true) return;
       final canNow = await subProv.canAnalyze();
       if (!canNow || !mounted) return;
     }
 
     final picker = ImagePicker();
-    final xFile = await picker.pickImage(source: source, imageQuality: 90);
+    final xFile  = await picker.pickImage(source: source, imageQuality: 90);
     if (xFile == null || !mounted) return;
 
     Navigator.of(context).push(
@@ -151,10 +140,9 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final bgColor     = AppTheme.bgColor(context);
-    final borderColor = AppTheme.borderColor(context);
+    final bgColor       = AppTheme.bgColor(context);
+    final borderColor   = AppTheme.borderColor(context);
     final textSecondary = AppTheme.textSecondary(context);
-    // context.watch<SubscriptionProvider>().setIsPro(true);
 
     return PopScope(
       canPop: false,
@@ -187,7 +175,8 @@ class _HomeScreenState extends State<HomeScreen>
                       const SizedBox(height: Insets.lg),
                       _buildQuickActionsSection(context),
                       const SizedBox(height: Insets.lg),
-                      const DisclaimerBanner(text: AppConstants.startupDisclaimer),
+                      const DisclaimerBanner(
+                          text: AppConstants.startupDisclaimer),
                       const SizedBox(height: Insets.xl),
                     ]),
                   ),
@@ -203,27 +192,87 @@ class _HomeScreenState extends State<HomeScreen>
   // ── Credits Status Card ───────────────────────────────────────────────────
 
   Widget _buildCreditsCard(BuildContext context) {
-    final sub = context.watch<SubscriptionProvider>();
-    final isDark = context.isDark;
-    final gold = AppTheme.gold(context);
-    final cardColor = AppTheme.cardColor(context);
+    final sub         = context.watch<SubscriptionProvider>();
+    final gold        = AppTheme.gold(context);
+    final cardColor   = AppTheme.cardColor(context);
     final borderColor = AppTheme.borderColor(context);
 
+    // ── Pro subscriber ───────────────────────────────────────────────────────
     if (sub.isPro) {
-      return _ProBadgeCard(gold: gold, cardColor: cardColor, borderColor: borderColor);
+      final creditsLeft  = sub.subscriptionCredits;    // raw credit count
+      final analysesLeft = sub.analysesAvailable;      // credits ÷ 3
+      final isLow        = analysesLeft <= 5;
+
+      return GestureDetector(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const PaywallScreen()),
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+              horizontal: Insets.md, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [gold.withOpacity(0.12), gold.withOpacity(0.04)],
+            ),
+            borderRadius: BorderRadius.circular(Radii.lg),
+            border: Border.all(
+              color: isLow
+                  ? AppTheme.red(context).withOpacity(0.5)
+                  : gold.withOpacity(0.3),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isLow
+                    ? Icons.warning_amber_rounded
+                    : Icons.workspace_premium_rounded,
+                color: isLow ? AppTheme.red(context) : gold,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${sub.tierLabel} — $creditsLeft credits',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: isLow ? AppTheme.red(context) : gold,
+                      ),
+                    ),
+                    Text(
+                      isLow
+                          ? '$analysesLeft ${analysesLeft == 1 ? 'analysis' : 'analyses'} left — tap to manage plan'
+                          : '~$analysesLeft analyses remaining this cycle',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.textSecondary(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.check_circle_rounded, color: gold, size: 16),
+            ],
+          ),
+        ),
+      );
     }
 
+    // ── Free user ────────────────────────────────────────────────────────────
     final freeLeft = sub.freeRemaining;
-    final paidLeft = sub.paidCredits;
-    final totalLeft = freeLeft + paidLeft;
-    final isLow = totalLeft <= 1;
+    final isLow    = freeLeft <= 1;
 
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const PaywallScreen()),
       ),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+            horizontal: Insets.md, vertical: 12),
         decoration: BoxDecoration(
           color: isLow
               ? AppTheme.red(context).withOpacity(0.06)
@@ -256,9 +305,7 @@ class _HomeScreenState extends State<HomeScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isLow
-                        ? 'Almost out of analyses!'
-                        : 'Analyses Available',
+                    isLow ? 'Almost out of analyses!' : 'Free Analyses Available',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -267,25 +314,29 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                   Text(
                     freeLeft > 0
-                        ? '$freeLeft free ${freeLeft == 1 ? 'analysis' : 'analyses'} remaining${paidLeft > 0 ? ' + $paidLeft credits' : ''}'
-                        : paidLeft > 0
-                            ? '$paidLeft paid credits remaining'
-                            : 'No analyses left — tap to get more',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary(context)),
+                        ? '$freeLeft free ${freeLeft == 1 ? 'analysis' : 'analyses'} remaining'
+                        : 'No analyses left — tap to subscribe',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.textSecondary(context)),
                   ),
                 ],
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: gold.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(Radii.full),
                 border: Border.all(color: gold.withOpacity(0.3)),
               ),
               child: Text(
-                'Get More',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: gold),
+                'Subscribe',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: gold),
               ),
             ),
           ],
@@ -307,33 +358,42 @@ class _HomeScreenState extends State<HomeScreen>
       flexibleSpace: Container(
         decoration: BoxDecoration(
           color: bgColor,
-          border: Border(bottom: BorderSide(color: borderColor, width: 0.5)),
+          border:
+          Border(bottom: BorderSide(color: borderColor, width: 0.5)),
         ),
       ),
       title: Row(
         children: [
           Builder(builder: (context) {
-            final isDark  = Theme.of(context).brightness == Brightness.dark;
-            final gold    = AppTheme.gold(context);
-            final goldSoft = isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft;
-            final iconBg  = isDark ? AppColorsDark.bg : AppColorsLight.bg;
+            final isDark   = Theme.of(context).brightness == Brightness.dark;
+            final gold     = AppTheme.gold(context);
+            final goldSoft = isDark
+                ? AppColorsDark.goldSoft
+                : AppColorsLight.goldSoft;
+            final iconBg =
+            isDark ? AppColorsDark.bg : AppColorsLight.bg;
             return Container(
-              width: 34, height: 34,
+              width: 34,
+              height: 34,
               decoration: BoxDecoration(
                 gradient: LinearGradient(colors: [gold, goldSoft]),
                 borderRadius: BorderRadius.circular(Radii.sm),
               ),
-              child: Icon(Icons.candlestick_chart_rounded, color: iconBg, size: 18),
+              child: Icon(Icons.candlestick_chart_rounded,
+                  color: iconBg, size: 18),
             );
           }),
           const SizedBox(width: 10),
-          Builder(builder: (context) => Text(
-            'AI Chart Analyzer',
-            style: TextStyle(
-              fontSize: 17, fontWeight: FontWeight.w800,
-              color: AppTheme.textPrimary(context),
+          Builder(
+            builder: (context) => Text(
+              'AI Chart Analyzer',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimary(context),
+              ),
             ),
-          )),
+          ),
         ],
       ),
       actions: [
@@ -350,29 +410,36 @@ class _HomeScreenState extends State<HomeScreen>
   // ── Welcome Card ──────────────────────────────────────────────────────────
 
   Widget _buildWelcomeCard(BuildContext context) {
-    final isDark    = Theme.of(context).brightness == Brightness.dark;
-    final gold      = AppTheme.gold(context);
-    final goldSoft  = isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft;
-    final borderGlow = isDark ? AppColorsDark.borderGlow : AppColorsLight.borderGlow;
+    final isDark     = Theme.of(context).brightness == Brightness.dark;
+    final gold       = AppTheme.gold(context);
+    final borderGlow =
+    isDark ? AppColorsDark.borderGlow : AppColorsLight.borderGlow;
 
     return Container(
       padding: const EdgeInsets.all(Insets.lg),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: isDark
               ? const [Color(0xFF1A1F2E), Color(0xFF0F1520)]
               : const [Color(0xFFFFFFFF), Color(0xFFF0F4FF)],
         ),
         borderRadius: BorderRadius.circular(Radii.xl),
         border: Border.all(color: borderGlow),
-        boxShadow: [BoxShadow(color: gold.withOpacity(0.06), blurRadius: 30, offset: const Offset(0, 10))],
+        boxShadow: [
+          BoxShadow(
+              color: gold.withOpacity(0.06),
+              blurRadius: 30,
+              offset: const Offset(0, 10))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
+            padding: const EdgeInsets.symmetric(
+                horizontal: Insets.sm, vertical: 4),
             decoration: BoxDecoration(
               color: gold.withOpacity(0.15),
               borderRadius: BorderRadius.circular(Radii.full),
@@ -384,32 +451,49 @@ class _HomeScreenState extends State<HomeScreen>
                 Icon(Icons.auto_awesome_rounded, color: gold, size: 11),
                 const SizedBox(width: 4),
                 Text('GPT-4o Vision',
-                    style: TextStyle(color: gold, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                    style: TextStyle(
+                        color: gold,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5)),
               ],
             ),
           ),
           const SizedBox(height: Insets.md),
           Text(
             'Trade Smarter\nwith AI Analysis',
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800,
-                color: AppTheme.textPrimary(context), height: 1.2),
+            style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimary(context),
+                height: 1.2),
           ),
           const SizedBox(height: Insets.sm),
           Text(
             'Upload any chart — Crypto, Forex, or Stocks — and get\ninstant AI-powered technical analysis.',
-            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary(context), height: 1.5),
+            style: TextStyle(
+                fontSize: 13,
+                color: AppTheme.textSecondary(context),
+                height: 1.5),
           ),
           const SizedBox(height: Insets.lg),
           Row(children: [
             _StatChip(label: 'Patterns', icon: Icons.pattern),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text('·', style: TextStyle(color: AppTheme.textSecondary(context), fontSize: 14)),
+              child: Text('·',
+                  style: TextStyle(
+                      color: AppTheme.textSecondary(context),
+                      fontSize: 14)),
             ),
-            _StatChip(label: 'Levels', icon: Icons.horizontal_rule_rounded),
+            _StatChip(
+                label: 'Levels', icon: Icons.horizontal_rule_rounded),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text('·', style: TextStyle(color: AppTheme.textSecondary(context), fontSize: 14)),
+              child: Text('·',
+                  style: TextStyle(
+                      color: AppTheme.textSecondary(context),
+                      fontSize: 14)),
             ),
             _StatChip(label: 'Signals', icon: Icons.bolt_rounded),
           ]),
@@ -433,29 +517,38 @@ class _HomeScreenState extends State<HomeScreen>
           onTap: () => _pickImage(ImageSource.gallery),
           child: Container(
             key: _guideKeyGallery,
-            width: double.infinity, height: 140,
+            width: double.infinity,
+            height: 140,
             decoration: BoxDecoration(
               color: cardColor,
               borderRadius: BorderRadius.circular(Radii.xl),
-              border: Border.all(color: gold.withOpacity(0.3), width: 1.5),
+              border: Border.all(
+                  color: gold.withOpacity(0.3), width: 1.5),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 48, height: 48,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
-                    color: gold.withOpacity(0.1), shape: BoxShape.circle,
+                    color: gold.withOpacity(0.1),
+                    shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.add_photo_alternate_outlined, color: gold, size: 24),
+                  child: Icon(Icons.add_photo_alternate_outlined,
+                      color: gold, size: 24),
                 ),
                 const SizedBox(height: 8),
                 Text('Upload Chart from Gallery',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                         color: AppTheme.textPrimary(context))),
                 const SizedBox(height: 4),
                 Text('PNG, JPG supported',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textMuted(context))),
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.textMuted(context))),
               ],
             ),
           ),
@@ -467,7 +560,8 @@ class _HomeScreenState extends State<HomeScreen>
           height: 50,
           child: GradientButton(
             label: 'Capture from Camera',
-            icon: Icon(Icons.camera_alt_outlined, color: AppTheme.bgColor(context), size: 18),
+            icon: Icon(Icons.camera_alt_outlined,
+                color: AppTheme.bgColor(context), size: 18),
             onTap: () => _pickImage(ImageSource.camera),
             height: 50,
           ),
@@ -491,7 +585,8 @@ class _HomeScreenState extends State<HomeScreen>
               label: 'Live Crypto\nCharts',
               color: AppTheme.emerald(context),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const LiveChartScreen()),
+                MaterialPageRoute(
+                    builder: (_) => const LiveChartScreen()),
               ),
             ),
           ),
@@ -513,7 +608,8 @@ class _HomeScreenState extends State<HomeScreen>
               label: 'Analysis\nHistory',
               color: AppTheme.blue(context),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                MaterialPageRoute(
+                    builder: (_) => const HistoryScreen()),
               ),
             ),
           ),
@@ -524,37 +620,6 @@ class _HomeScreenState extends State<HomeScreen>
 }
 
 // ── Sub Widgets ───────────────────────────────────────────────────────────────
-
-class _ProBadgeCard extends StatelessWidget {
-  final Color gold;
-  final Color cardColor;
-  final Color borderColor;
-  const _ProBadgeCard({required this.gold, required this.cardColor, required this.borderColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [gold.withOpacity(0.12), gold.withOpacity(0.04)],
-        ),
-        borderRadius: BorderRadius.circular(Radii.lg),
-        border: Border.all(color: gold.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.workspace_premium_rounded, color: gold, size: 20),
-          const SizedBox(width: 10),
-          Text('Pro Member — Unlimited Analyses',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: gold)),
-          const Spacer(),
-          Icon(Icons.check_circle_rounded, color: gold, size: 16),
-        ],
-      ),
-    );
-  }
-}
 
 class _StatChip extends StatelessWidget {
   final String label;
@@ -587,7 +652,12 @@ class _ActionCard extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _ActionCard({required this.icon, required this.label, required this.color, required this.onTap});
+  const _ActionCard({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -604,7 +674,8 @@ class _ActionCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 40, height: 40,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: color.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(Radii.md),
@@ -613,8 +684,11 @@ class _ActionCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(label,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary(context), height: 1.3)),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary(context),
+                    height: 1.3)),
           ],
         ),
       ),

@@ -151,8 +151,7 @@ class LiveChartProvider extends ChangeNotifier {
   List<String> _favoritePairs = [];
   List<String> _recentPairs = [];
 
-  // All USDT pairs fetched dynamically from Binance
-  List<String> _allPairs = AppConstants.cryptoPairs; // seeded with defaults
+  List<String> _allPairs = AppConstants.cryptoPairs;
   bool _pairsLoading = false;
   bool _pairsLoaded = false;
 
@@ -201,14 +200,12 @@ class LiveChartProvider extends ChangeNotifier {
         _pairsLoaded = true;
       }
     } catch (_) {
-      // Keep seeded defaults on failure
     } finally {
       _pairsLoading = false;
       notifyListeners();
     }
   }
 
-  /// Refresh all pairs list (call on pull-to-refresh or re-enter screen)
   Future<void> refreshAllPairs() async {
     _pairsLoaded = false;
     await _fetchAllPairs();
@@ -284,34 +281,60 @@ class LiveChartProvider extends ChangeNotifier {
 
 class SubscriptionProvider extends ChangeNotifier {
   bool _isPro = false;
-  int _paidCredits = 0;
+  int _subscriptionCredits = 0;
   int _freeRemaining = AppConstants.freeAnalysesPerDay;
   bool _isLoading = false;
   Offerings? _offerings;
+  SubscriptionTier _activeTier = SubscriptionTier.none;
 
   bool get isPro => _isPro;
-  int get paidCredits => _paidCredits;
+  int get subscriptionCredits => _subscriptionCredits;
   int get freeRemaining => _freeRemaining;
   bool get isLoading => _isLoading;
   Offerings? get offerings => _offerings;
-  int get totalAvailable => _isPro ? 999 : _freeRemaining + _paidCredits;
+  SubscriptionTier get activeTier => _activeTier;
 
-  void setIsPro(bool value){
+  /// Total analyses remaining (credit-based for Pro, free count for non-Pro).
+  int get analysesAvailable {
+    if (_isPro) {
+      return (_subscriptionCredits / AppConstants.creditsPerAnalysis).floor();
+    }
+    return _freeRemaining;
+  }
+
+  /// Credit count to display in UI (subscription credits for Pro users).
+  int get displayCredits => _isPro ? _subscriptionCredits : _freeRemaining;
+
+  void setIsPro(bool value) {
     _isPro = value;
+    notifyListeners();
   }
 
   Future<void> refresh() async {
     _isLoading = true;
     notifyListeners();
-    _isPro = await SubscriptionService.instance.isPro();
-    _paidCredits = await CreditsService.instance.getPaidCredits();
-    _freeRemaining = await CreditsService.instance.getFreeRemaining();
+
+    _isPro             = await SubscriptionService.instance.isPro();
+    _activeTier        = await SubscriptionService.instance.getActiveSubscriptionTier();
+    _subscriptionCredits = await CreditsService.instance.getSubscriptionCredits();
+    _freeRemaining     = await CreditsService.instance.getFreeRemaining();
+
+    // If active subscription, ensure credits have been granted for this cycle
+    if (_activeTier != SubscriptionTier.none) {
+      await CreditsService.instance.handleSubscriptionChange(_activeTier);
+      _subscriptionCredits = await CreditsService.instance.getSubscriptionCredits();
+    }
+
     _isLoading = false;
     notifyListeners();
   }
 
   Future<void> loadOfferings() async {
+    if (_isLoading && _offerings != null) return;
+    _isLoading = true;
+    notifyListeners();
     _offerings = await SubscriptionService.instance.fetchOfferings();
+    _isLoading = false;
     notifyListeners();
   }
 
@@ -321,26 +344,27 @@ class SubscriptionProvider extends ChangeNotifier {
 
   Future<CreditConsumeResult> consumeCredit() async {
     final result = await CreditsService.instance.consume(isPro: _isPro);
-    _paidCredits = await CreditsService.instance.getPaidCredits();
-    _freeRemaining = await CreditsService.instance.getFreeRemaining();
+    _subscriptionCredits = await CreditsService.instance.getSubscriptionCredits();
+    _freeRemaining       = await CreditsService.instance.getFreeRemaining();
     notifyListeners();
     return result;
   }
 
+  /// Purchases a subscription package. Grants subscription credits on success.
   Future<void> purchasePackage(Package package) async {
     _isLoading = true;
     notifyListeners();
     try {
       final info = await SubscriptionService.instance.purchase(package);
-      _isPro = info.entitlements.active.containsKey(AppConstants.rcProEntitlement);
+      _isPro = info.entitlements.active
+          .containsKey(AppConstants.rcProEntitlement);
 
-      final productId = package.storeProduct.identifier;
-      if (productId == AppConstants.rcPack10Id) {
-        await CreditsService.instance.addPaidCredits(AppConstants.creditsInPack10);
-      } else if (productId == AppConstants.rcPack50Id) {
-        await CreditsService.instance.addPaidCredits(AppConstants.creditsInPack50);
-      } else if (productId == AppConstants.rcPack200Id) {
-        await CreditsService.instance.addPaidCredits(AppConstants.creditsInPack200);
+      if (_isPro) {
+        // Determine the tier from the purchased product identifier
+        final productId = package.storeProduct.identifier;
+        final tier = _tierFromProductId(productId);
+        _activeTier = tier;
+        await CreditsService.instance.handleSubscriptionChange(tier);
       }
       await refresh();
     } catch (e) {
@@ -356,11 +380,46 @@ class SubscriptionProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final info = await SubscriptionService.instance.restore();
-      _isPro = info.entitlements.active.containsKey(AppConstants.rcProEntitlement);
+      _isPro = info.entitlements.active
+          .containsKey(AppConstants.rcProEntitlement);
+
+      if (_isPro) {
+        final tier = await SubscriptionService.instance.getActiveSubscriptionTier();
+        _activeTier = tier;
+        await CreditsService.instance.handleSubscriptionChange(tier);
+      }
       await refresh();
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  static SubscriptionTier _tierFromProductId(String productId) {
+    if (productId == AppConstants.rcYearlySubId ||
+        productId.contains('yearly')) {
+      return SubscriptionTier.yearly;
+    }
+    if (productId == AppConstants.rcMonthlySubId ||
+        productId.contains('monthly')) {
+      return SubscriptionTier.monthly;
+    }
+    if (productId == AppConstants.rcWeeklySubId ||
+        productId.contains('weekly')) {
+      return SubscriptionTier.weekly;
+    }
+    return SubscriptionTier.monthly;
+  }
+
+  /// Human-readable tier label.
+  String get tierLabel {
+    switch (_activeTier) {
+      case SubscriptionTier.weekly:  return 'Weekly Pro';
+      case SubscriptionTier.monthly: return 'Monthly Pro';
+      case SubscriptionTier.yearly:  return 'Yearly Pro';
+      case SubscriptionTier.none:    return 'Free';
     }
   }
 }
