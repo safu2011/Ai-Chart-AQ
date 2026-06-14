@@ -21,7 +21,7 @@ class AppConstants {
 
   // ── RevenueCat ─────────────────────────────────────────────────────────────
   // Replace with your actual RevenueCat API keys from dashboard.revenuecat.com
-  static const revenueCatApiKeyAndroid = 'YOUR_REVENUECAT_ANDROID_KEY';
+  static const revenueCatApiKeyAndroid = 'goog_IKxQVdvoKfNxhqifVJQqKmkpSsz';
   static const revenueCatApiKeyIos = 'YOUR_REVENUECAT_IOS_KEY';
 
   // Entitlement identifier — set in RevenueCat dashboard
