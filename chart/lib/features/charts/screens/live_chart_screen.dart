@@ -452,55 +452,52 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
     final isPairsLoading = liveChart.pairsLoading;
 
     return Expanded(
-      child: ListView(
+      child: ListView.builder(
         padding: const EdgeInsets.all(Insets.md),
-        children: [
-          if (favorites.isNotEmpty) ...[
-            const SectionHeader(title: 'Favorites'),
-            const SizedBox(height: 8),
-            ...favorites
-                .map((p) => _PairTile(pair: p, onTap: () => _selectPair(p))),
-            const SizedBox(height: Insets.md),
-          ],
-          Row(
-            children: [
-              const SectionHeader(title: 'All Pairs'),
-              const SizedBox(width: 8),
-              if (isPairsLoading)
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                      color: AppColors.gold, strokeWidth: 2),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.gold.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${allPairs.length}',
-                    style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.gold),
-                  ),
-                ),
+        itemCount: 1, // single section wrapper
+        itemBuilder: (_, __) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (favorites.isNotEmpty) ...[
+              const SectionHeader(title: 'Favorites'),
+              const SizedBox(height: 8),
+              ...favorites.map((p) => _PairTile(pair: p, onTap: () => _selectPair(p))),
+              const SizedBox(height: Insets.md),
             ],
-          ),
-          const SizedBox(height: 8),
-          ...allPairs
-              .map((p) => _PairTile(pair: p, onTap: () => _selectPair(p))),
-          if (recents.isNotEmpty) ...[
-            const SizedBox(height: Insets.md),
-            const SectionHeader(title: 'Recent'),
+            Row(
+              children: [
+                const Expanded(child: SectionHeader(title: 'All Pairs')),
+                const SizedBox(width: 8),
+                if (isPairsLoading)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 2),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.gold.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${allPairs.length}',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.gold),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: 8),
-            ...recents
-                .map((p) => _PairTile(pair: p, onTap: () => _selectPair(p))),
+            ...allPairs.map((p) => _PairTile(pair: p, onTap: () => _selectPair(p))),
+            if (recents.isNotEmpty) ...[
+              const SizedBox(height: Insets.md),
+              const SectionHeader(title: 'Recent'),
+              const SizedBox(height: 8),
+              ...recents.map((p) => _PairTile(pair: p, onTap: () => _selectPair(p))),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -516,6 +513,8 @@ class _PairTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final base = pair.replaceAll('USDT', '');
     return ListTile(
+      iconColor: AppColors.gold, // explicit, avoids null-check in theme resolution
+      textColor: AppColors.textPrimary,
       contentPadding:
           const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
       leading: Container(
