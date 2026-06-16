@@ -7,10 +7,7 @@ class AppConstants {
   static const appVersion = '1.0.0';
 
   // ── OpenAI ─────────────────────────────────────────────────────────────────
-  static const String openAiApiKey = String.fromEnvironment(
-    'OPENAI_API_KEY',
-    defaultValue: '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',
-  );
+  static const String chabbi = "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";
   static const openAiBaseUrl = 'https://api.openai.com/v1';
   static const openAiModel = 'gpt-4o-mini';
 

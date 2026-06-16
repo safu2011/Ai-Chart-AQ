@@ -8,7 +8,7 @@ import '../models/chart_analysis.dart';
 
 /// Handles all communication with the OpenAI Vision API.
 ///
-/// The API key is sourced exclusively from [AppConstants.openAiApiKey],
+/// The API key is sourced exclusively from [AppConstants.chabbi],
 /// which is either supplied at build-time via --dart-define=OPENAI_API_KEY=sk-...
 /// or falls back to the 'YOUR_API_KEY_HERE' placeholder.
 class OpenAiService {
@@ -82,7 +82,7 @@ If the image is not a financial chart, set sentiment to "Neutral", sentiment_sco
   /// Analyse a chart [imageFile] using GPT-4o Vision.
   ///
   Future<ChartAnalysis> analyzeChart(File imageFile) async {
-    final apiKey = AppConstants.openAiApiKey;
+    final apiKey = AppConstants.chabbi;
     print('API Key prefix: ${apiKey.substring(0, 10)}...');
     print('API Key length: ${apiKey.length}');
     print("API key = $apiKey");
