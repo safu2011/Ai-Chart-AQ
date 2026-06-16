@@ -4,9 +4,6 @@ allprojects {
         mavenCentral()
     }
 
-    // Force consistent JVM 17 target across ALL subprojects (including third-party
-    // plugins like receive_sharing_intent) to prevent the Java/Kotlin JVM-target
-    // mismatch build error.
     plugins.withId("org.jetbrains.kotlin.android") {
         extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension> {
             jvmToolchain(17)
@@ -30,14 +27,7 @@ allprojects {
     }
 }
 
-// ─── Build directory override ───────────────────────────────────────────────
-// Redirect build output to C:\ so Gradle can resolve relative paths between
-// build dirs and Pub cache plugin sources (both on C:\). Cross-drive relative
-// paths (E:\ → C:\) are not supported on Windows.
-val newBuildDir: Directory =
-    rootProject.layout.projectDirectory
-        .dir("../../build")  // resolves to E:\Projects\github\Ai-Chart-AQ\build
-
+val newBuildDir: Directory = rootProject.layout.projectDirectory.dir("../build")
 rootProject.layout.buildDirectory.value(newBuildDir)
 
 subprojects {
@@ -52,21 +42,3 @@ subprojects {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
-
-//val newBuildDir: Directory =
-//    rootProject.layout.buildDirectory
-//        .dir("../../build")
-//        .get()
-//rootProject.layout.buildDirectory.value(newBuildDir)
-//
-//subprojects {
-//    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-//    project.layout.buildDirectory.value(newSubprojectBuildDir)
-//}
-//subprojects {
-//    project.evaluationDependsOn(":app")
-//}
-//
-//tasks.register<Delete>("clean") {
-//    delete(rootProject.layout.buildDirectory)
-//}

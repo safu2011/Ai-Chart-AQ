@@ -28,7 +28,7 @@ Future<void> main() async {
   await Future.wait([
     SubscriptionService.instance.init(),
     AdService.instance.init(),
-    AlertsService.instance.init(),
+    // AlertsService.instance.init(),
   ]);
 
   // ── Providers ─────────────────────────────────────────────────────────────

@@ -25,8 +25,15 @@ class _AlertsScreenState extends State<AlertsScreen>
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await AlertsService.instance.requestPermission();
-      if (mounted) context.read<AlertsProvider>().load();
+      bool result = await AlertsService.instance.requestPermission();
+      print("Permission granted = $result");
+      result = await AlertsService.instance.isNotificationPermissionGranted();
+      print("Permission granted 2 = $result");
+
+      if (mounted){
+        context.read<AlertsProvider>().checkAlerts();
+        // context.read<AlertsProvider>().load();
+      }
     });
   }
 

@@ -73,14 +73,20 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
   }
 
   Future<void> _applyCrop() async {
-    if (_cropStart == null || _cropEnd == null) return;
+    if (_cropStart == null || _cropEnd == null) {
+      AppConstants.showErrorToast(context, "Please select area to crop first");
+      return;
+    }
 
     final minX = _cropStart!.dx < _cropEnd!.dx ? _cropStart!.dx : _cropEnd!.dx;
     final minY = _cropStart!.dy < _cropEnd!.dy ? _cropStart!.dy : _cropEnd!.dy;
     final maxX = _cropStart!.dx > _cropEnd!.dx ? _cropStart!.dx : _cropEnd!.dx;
     final maxY = _cropStart!.dy > _cropEnd!.dy ? _cropStart!.dy : _cropEnd!.dy;
 
-    if ((maxX - minX) < 10 || (maxY - minY) < 10) return;
+    if ((maxX - minX) < 10 || (maxY - minY) < 10) {
+      AppConstants.showErrorToast(context, "Please select area to crop first");
+      return;
+    }
 
     // Get the container size that holds the image
     final ctx = _imageContainerKey.currentContext;
@@ -430,8 +436,7 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                // Color row
-
+                if(_selectedTool == _DrawTool.pen)
                 Row(
                   children: [
                     const Text('Color:',

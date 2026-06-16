@@ -314,16 +314,28 @@ class SubscriptionProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    _isPro             = await SubscriptionService.instance.isPro();
-    _activeTier        = await SubscriptionService.instance.getActiveSubscriptionTier();
-    _subscriptionCredits = await CreditsService.instance.getSubscriptionCredits();
-    _freeRemaining     = await CreditsService.instance.getFreeRemaining();
+    _isPro      = await SubscriptionService.instance.isPro();
+    _activeTier = await SubscriptionService.instance.getActiveSubscriptionTier();
 
-    // If active subscription, ensure credits have been granted for this cycle
     if (_activeTier != SubscriptionTier.none) {
-      await CreditsService.instance.handleSubscriptionChange(_activeTier);
-      _subscriptionCredits = await CreditsService.instance.getSubscriptionCredits();
+      // Pull the real entitlement expiration from RevenueCat and let
+      // CreditsService decide whether this is a renewal/tier-change
+      // (discard + refresh) or just the same ongoing cycle (no-op).
+      final info = await SubscriptionService.instance.getCustomerInfo();
+      final expiration = info != null
+          ? await SubscriptionService.instance.getEntitlementExpirationDate(info)
+          : null;
+      await CreditsService.instance.handleSubscriptionChange(
+        _activeTier,
+        expiration: expiration,
+      );
+    } else {
+      // Subscription lapsed/expired/cancelled — zero out subscription credits.
+      await CreditsService.instance.handleSubscriptionChange(SubscriptionTier.none);
     }
+
+    _subscriptionCredits = await CreditsService.instance.getSubscriptionCredits();
+    _freeRemaining       = await CreditsService.instance.getFreeRemaining();
 
     _isLoading = false;
     notifyListeners();
@@ -350,7 +362,8 @@ class SubscriptionProvider extends ChangeNotifier {
     return result;
   }
 
-  /// Purchases a subscription package. Grants subscription credits on success.
+  /// Purchases a subscription package. Grants subscription credits on success,
+  /// discarding any previous balance (new purchase = fresh cycle).
   Future<void> purchasePackage(Package package) async {
     _isLoading = true;
     notifyListeners();
@@ -360,11 +373,15 @@ class SubscriptionProvider extends ChangeNotifier {
           .containsKey(AppConstants.rcProEntitlement);
 
       if (_isPro) {
-        // Determine the tier from the purchased product identifier
         final productId = package.storeProduct.identifier;
         final tier = _tierFromProductId(productId);
         _activeTier = tier;
-        await CreditsService.instance.handleSubscriptionChange(tier);
+        final expiration =
+        await SubscriptionService.instance.getEntitlementExpirationDate(info);
+        await CreditsService.instance.handleSubscriptionChange(
+          tier,
+          expiration: expiration,
+        );
       }
       await refresh();
     } catch (e) {
@@ -386,7 +403,12 @@ class SubscriptionProvider extends ChangeNotifier {
       if (_isPro) {
         final tier = await SubscriptionService.instance.getActiveSubscriptionTier();
         _activeTier = tier;
-        await CreditsService.instance.handleSubscriptionChange(tier);
+        final expiration =
+        await SubscriptionService.instance.getEntitlementExpirationDate(info);
+        await CreditsService.instance.handleSubscriptionChange(
+          tier,
+          expiration: expiration,
+        );
       }
       await refresh();
     } finally {

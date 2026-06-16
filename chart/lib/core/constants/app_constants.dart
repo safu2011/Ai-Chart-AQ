@@ -35,33 +35,32 @@ class AppConstants {
   static const rcMonthlySubId = 'monthly:monthly'; // $17.00/month
   static const rcYearlySubId  = 'yearly:yearly';   // $190.00/year
 
-  // ── Credit System ──────────────────────────────────────────────────────────
-  // Pricing model:
-  //   • 1 analysis = 3 API hits = $0.06 charged to user
-  //   • API cost to us: 3 hits × $0.02/3-hits = $0.02 → we charge $0.06
-  //   • 1 credit = 1 API hit = $0.02 cost / $0.06 revenue
-  //   • 1 analysis consumes 3 credits
-  //
-  // Subscription monthly credit allowances (credits = API hits):
-  //   Weekly  ($5.00/wk  ≈ $21.67/mo): ~360 credits/month  → ~120 analyses
-  //   Monthly ($17.00/mo)             : ~850 credits/month  → ~283 analyses
-  //   Yearly  ($190.00/yr ≈ $15.83/mo): ~790 credits/month  → ~263 analyses
-  //
-  // We store subscription credits separately from legacy paid credits.
-  // Credits are refreshed each billing period via subscription status check.
 
   /// Number of API hits (credits) consumed per analysis call.
-  static const creditsPerAnalysis = 3;
+  static const double costPerApiHitUsd   = 0.006; // your OpenAI cost
+  static const double pricePerCreditUsd  = 0.02;  // what user pays per credit
+  static const int    creditsPerAnalysis = 1;      // 1 credit = 1 API hit
 
   // Monthly credit grants per subscription tier
-  static const weeklyCreditsPerCycle  = 84;   // ~28 analyses/week (4 weeks = 336/month)
-  static const monthlyCreditsPerCycle = 850;  // ~283 analyses/month
-  static const yearlyCreditsPerCycle  = 9500; // ~263 analyses/month × 12 = 3160/yr (generous annual)
+  static const int weeklyCreditsPerCycle  = 250;  // $5  / 0.02
+  static const int monthlyCreditsPerCycle = 850;  // $17 / 0.02
+  static const int yearlyCreditsPerCycle  = 9500; // $190 / 0.02
 
   // Free tier — ONE-TIME lifetime free analyses (not per day)
   static const freeAnalysesTotal = 3;
   // Keep alias for any legacy references
   static const freeAnalysesPerDay = freeAnalysesTotal;
+
+  static void showErrorToast(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.red.shade700,
+      ),
+    );
+  }
 
   // ── AdMob ──────────────────────────────────────────────────────────────────
   static const admobBannerAndroid = 'ca-app-pub-3940256099942544/6300978111';

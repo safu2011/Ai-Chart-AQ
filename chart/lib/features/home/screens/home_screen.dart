@@ -199,8 +199,8 @@ class _HomeScreenState extends State<HomeScreen>
 
     // ── Pro subscriber ───────────────────────────────────────────────────────
     if (sub.isPro) {
-      final creditsLeft  = sub.subscriptionCredits;    // raw credit count
-      final analysesLeft = sub.analysesAvailable;      // credits ÷ 3
+      final creditsLeft  = sub.subscriptionCredits;
+      final analysesLeft = sub.analysesAvailable;
       final isLow        = analysesLeft <= 5;
 
       return GestureDetector(

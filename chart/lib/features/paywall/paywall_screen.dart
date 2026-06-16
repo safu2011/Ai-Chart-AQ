@@ -7,12 +7,6 @@ import '../../core/theme/app_theme.dart';
 import '../../widgets/shared_widgets.dart';
 import '../providers.dart';
 import '../../services/subscription_service.dart';
-
-/// Full-screen paywall — subscription-only.
-///
-/// Displays weekly / monthly / yearly plans fetched from the RevenueCat "pro"
-/// offering. The user's current active plan is highlighted. Subscribing,
-/// upgrading, or downgrading is handled through [SubscriptionProvider].
 class PaywallScreen extends StatefulWidget {
   final bool isModal;
   const PaywallScreen({super.key, this.isModal = false});
@@ -360,13 +354,13 @@ class _HeroHeader extends StatelessWidget {
           ),
           const SizedBox(height: Insets.md),
           Wrap(
-            spacing: 8,
+            spacing: 16,
             runSpacing: 8,
             children: const [
-              _FeatureChip(icon: Icons.bolt_rounded,          label: 'Instant AI Analysis'),
-              _FeatureChip(icon: Icons.history_rounded,       label: 'Full History'),
-              _FeatureChip(icon: Icons.notifications_none_rounded, label: 'Price Alerts'),
-              _FeatureChip(icon: Icons.block_rounded,         label: 'Ad-Free'),
+              _FeatureBenefit(icon: Icons.bolt_rounded,label: 'Instant AI Analysis'),
+              _FeatureBenefit(icon: Icons.history_rounded,label: 'Full History'),
+              _FeatureBenefit(icon: Icons.notifications_none_rounded,label: 'Price Alerts'),
+              _FeatureBenefit(icon: Icons.block_rounded,label: 'Ad-Free'),
             ],
           ),
         ],
@@ -416,9 +410,9 @@ class _CreditInfoBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '1 analysis = ${AppConstants.creditsPerAnalysis} credits  •  '
-                      'Credits refresh each billing cycle  •  '
-                      'Unused credits carry over',
+                  '•  1 analysis = ${AppConstants.creditsPerAnalysis} credit\n'
+                      '•  Credits reset each billing cycle\n'
+                      '•  Unused credits do not carry over',
                   style: TextStyle(
                     fontSize: 11,
                     color: AppTheme.textSecondary(context),
@@ -673,8 +667,7 @@ class _PlanCard extends StatelessWidget {
                 icon: Icons.bolt_rounded,
                 color: AppTheme.emerald(context),
                 text:
-                '${AppConstants.creditsPerAnalysis} credits per analysis'
-                    ' (\$${(pkg.storeProduct.price / analysesPerCycle).toStringAsFixed(3)} each)',
+                '${AppConstants.creditsPerAnalysis} credit per analysis',
               ),
 
               const SizedBox(height: Insets.md),
@@ -782,29 +775,24 @@ class _FeatureList extends StatelessWidget {
 
 // ─── Small reusable widgets ───────────────────────────────────────────────────
 
-class _FeatureChip extends StatelessWidget {
+class _FeatureBenefit extends StatelessWidget {
   final IconData icon;
   final String label;
-  const _FeatureChip({required this.icon, required this.label});
+  const _FeatureBenefit({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppTheme.neutral(context),
-        borderRadius: BorderRadius.circular(Radii.full),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: AppTheme.gold(context)),
-          const SizedBox(width: 4),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 11, color: AppTheme.textSecondary(context))),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: AppTheme.gold(context)),
+        const SizedBox(width: 6),
+        Text(label,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textSecondary(context))),
+      ],
     );
   }
 }

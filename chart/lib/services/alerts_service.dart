@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/price_alert.dart';
@@ -58,6 +59,11 @@ class AlertsService {
     _notifInitialized = true;
   }
 
+  Future<bool> isNotificationPermissionGranted() async {
+    final status = await Permission.notification.status;
+    return status.isGranted;
+  }
+
   // ── CRUD ──────────────────────────────────────────────────────────────────
 
   Future<List<PriceAlert>> loadAll() async {
@@ -111,6 +117,10 @@ class AlertsService {
   /// Check all active alerts against current market prices.
   /// Call this on a timer (every 30–60 seconds when app is in foreground).
   Future<void> checkAlerts() async {
+    bool result = await isNotificationPermissionGranted();
+    if (!result){
+      return;
+    }
     if (!_notifInitialized) await init();
 
     final alerts = await loadAll();
