@@ -10,7 +10,6 @@ import 'package:share_plus/share_plus.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/chart_analysis.dart';
-import '../../../services/credits_service.dart';
 import '../../../widgets/shared_widgets.dart';
 import '../../paywall/paywall_screen.dart';
 import '../../providers.dart';
@@ -32,14 +31,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
       final analysisProv = context.read<AnalysisProvider>();
       if (analysisProv.state is! AnalysisIdle) return;
 
-      // Consume a credit before running
       final subProv = context.read<SubscriptionProvider>();
-      final result = await subProv.consumeCredit();
-
-      if (result == CreditConsumeResult.noCredits) {
-        if (mounted) Navigator.of(context).pop();
-        return;
-      }
 
       // Hook rating prompt after successful analysis
       final prevCallback = analysisProv.onAnalysisComplete;
@@ -51,7 +43,13 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
         });
       };
 
-      analysisProv.analyze(widget.imageFile);
+      // Credit is only deducted by AnalysisProvider once the API call
+      // actually succeeds — see analyze() for the gate + consume logic.
+      await analysisProv.analyze(
+        widget.imageFile,
+        canAnalyzeFn: subProv.canAnalyze,
+        consumeFn: subProv.consumeCredit,
+      );
     });
   }
 
@@ -80,6 +78,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
           AnalysisLoading() => _buildLoading(),
           AnalysisSuccess(:final result) => _buildResult(result),
           AnalysisError(:final message) => _buildError(message),
+          AnalysisNoCredits() => _buildNoCredits(),
           AnalysisIdle() => _buildLoading(),
         },
       ),
@@ -126,6 +125,64 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
     );
   }
 
+  Widget _buildNoCredits() {
+    return Center(
+      key: const ValueKey('no_credits'),
+      child: Padding(
+        padding: const EdgeInsets.all(Insets.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72, height: 72,
+              decoration: BoxDecoration(
+                color: AppColors.gold.withOpacity(0.1), shape: BoxShape.circle,
+                border: Border.all(color: AppColors.gold.withOpacity(0.3)),
+              ),
+              child: const Icon(Icons.bolt_outlined, color: AppColors.gold, size: 34),
+            ),
+            const SizedBox(height: Insets.md),
+            const Text('No Credits Remaining',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            const SizedBox(height: 8),
+            const Text(
+              'You don\'t have any credits left for this analysis. Nothing was charged.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.5),
+            ),
+            const SizedBox(height: Insets.lg),
+            GradientButton(
+              label: 'View Plans',
+              onTap: () async {
+                final purchased = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                );
+                if (!mounted) return;
+                if (purchased == true) {
+                  // Credits are available now — retry automatically.
+                  final subProv = context.read<SubscriptionProvider>();
+                  context.read<AnalysisProvider>().analyze(
+                        widget.imageFile,
+                        canAnalyzeFn: subProv.canAnalyze,
+                        consumeFn: subProv.consumeCredit,
+                      );
+                } else {
+                  Navigator.of(context).pop();
+                }
+              },
+              width: 160,
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Go Back', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildError(String message) {
     return Center(
       key: const ValueKey('error'),
@@ -153,18 +210,28 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
             GradientButton(
               label: 'Try Again',
               onTap: () async {
-                // Consume another credit for retry
                 final subProv = context.read<SubscriptionProvider>();
-                final result = await subProv.consumeCredit();
-                if (result != CreditConsumeResult.noCredits && mounted) {
-                  context.read<AnalysisProvider>().analyze(widget.imageFile);
-                }else{
+
+                // Just a balance check — does NOT touch the user's credits.
+                // The retry's credit (if any) is deducted inside analyze()
+                // only after the API call actually succeeds, same as the
+                // first attempt.
+                final canAnalyze = await subProv.canAnalyze();
+                if (canAnalyze && mounted) {
+                  await context.read<AnalysisProvider>().analyze(
+                        widget.imageFile,
+                        canAnalyzeFn: subProv.canAnalyze,
+                        consumeFn: subProv.consumeCredit,
+                      );
+                } else if (mounted) {
                   final purchased = await Navigator.of(context).push<bool>(
                     MaterialPageRoute(builder: (_) => const PaywallScreen()),
                   );
-                  if (purchased != true) Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const HomeScreen()),
-                  );
+                  if (purchased != true && mounted) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => const HomeScreen()),
+                    );
+                  }
                 }
               },
               width: 160,

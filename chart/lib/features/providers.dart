@@ -75,23 +75,72 @@ class AnalysisError extends AnalysisState {
   const AnalysisError(this.message);
 }
 
+/// No free slot / subscription credits were available when analysis was
+/// attempted. Kept distinct from [AnalysisError] so the UI can route
+/// straight to the paywall — there's nothing to "Try Again" with, since the
+/// API was never even called.
+class AnalysisNoCredits extends AnalysisState {
+  const AnalysisNoCredits();
+}
+
 class AnalysisProvider extends ChangeNotifier {
   AnalysisState _state = const AnalysisIdle();
   AnalysisState get state => _state;
 
   VoidCallback? onAnalysisComplete;
 
-  Future<void> analyze(File imageFile) async {
+  /// Runs the chart analysis and only consumes a credit once the API call
+  /// has actually succeeded. On any failure (network error, timeout, API
+  /// error, parse error) no credit is deducted, since [consumeFn] is only
+  /// invoked after [OpenAiService.analyzeChart] returns successfully.
+  ///
+  /// [consumeFn] should be `SubscriptionProvider.consumeCredit`, supplied by
+  /// the caller so this provider doesn't need a direct dependency on it.
+  /// Sets [AnalysisNoCredits] (never calling the API) if there are no
+  /// credits available.
+  Future<void> analyze(
+    File imageFile, {
+    required Future<bool> Function() canAnalyzeFn,
+    required Future<CreditConsumeResult> Function() consumeFn,
+  }) async {
     _state = const AnalysisLoading();
     notifyListeners();
+
+    // Gate up front so we never hit the network with no credits to pay for it.
+    final canAnalyze = await canAnalyzeFn();
+    if (!canAnalyze) {
+      _state = const AnalysisNoCredits();
+      notifyListeners();
+      return;
+    }
+
     try {
+      // Credit is NOT deducted yet — only a successful API response below
+      // triggers consumption. Any exception here leaves credits untouched.
       final result = await OpenAiService.instance.analyzeChart(imageFile);
+
+      // API call succeeded — now, and only now, charge the credit.
+      final consumeResult = await consumeFn();
+      if (consumeResult == CreditConsumeResult.noCredits) {
+        // Extremely unlikely race (credits ran out between the gate check
+        // and now — e.g. the user fired off two analyses back-to-back and
+        // both passed canAnalyzeFn() before either consumed). Don't show a
+        // result the user didn't pay for; fail safe with a clear message
+        // instead of handing out a free analysis.
+        _state = const AnalysisError(
+          'You have no credits remaining. Please purchase a plan to continue.',
+        );
+        notifyListeners();
+        return;
+      }
+
       result.chartImagePath = imageFile.path;
       await HistoryRepository.instance.add(result);
       onAnalysisComplete?.call();
       _state = AnalysisSuccess(result);
     } catch (e) {
       print("Error = ${e}");
+      // No consumeFn() call on this path — failed analyses are free.
       _state = AnalysisError(OpenAiService.friendlyError(e));
     }
     notifyListeners();
@@ -362,8 +411,10 @@ class SubscriptionProvider extends ChangeNotifier {
     return result;
   }
 
-  /// Purchases a subscription package. Grants subscription credits on success,
-  /// discarding any previous balance (new purchase = fresh cycle).
+  /// Purchases a subscription package. Grants the full credit allotment
+  /// immediately on success — this is the one call site where we know with
+  /// certainty the user just paid right now, so handleFreshPurchase (not
+  /// handleSubscriptionChange) is used deliberately here.
   Future<void> purchasePackage(Package package) async {
     _isLoading = true;
     notifyListeners();
@@ -378,7 +429,7 @@ class SubscriptionProvider extends ChangeNotifier {
         _activeTier = tier;
         final expiration =
         await SubscriptionService.instance.getEntitlementExpirationDate(info);
-        await CreditsService.instance.handleSubscriptionChange(
+        await CreditsService.instance.handleFreshPurchase(
           tier,
           expiration: expiration,
         );
@@ -405,6 +456,11 @@ class SubscriptionProvider extends ChangeNotifier {
         _activeTier = tier;
         final expiration =
         await SubscriptionService.instance.getEntitlementExpirationDate(info);
+        // Deliberately handleSubscriptionChange, NOT handleFreshPurchase.
+        // "Restore Purchases" is exactly the action a user takes right
+        // after a reinstall/cache clear — granting full credits here would
+        // reopen the clear-cache exploit. If there's no local anchor yet,
+        // this correctly starts credits at 0 and waits for a real renewal.
         await CreditsService.instance.handleSubscriptionChange(
           tier,
           expiration: expiration,
