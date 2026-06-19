@@ -7,6 +7,9 @@ class AppConstants {
   static const appVersion = '1.0.0';
 
   // ── OpenAI ─────────────────────────────────────────────────────────────────
+  // chabbi is the compile-time / offline fallback for the OpenAI API key.
+  // At runtime it is overridden by the value fetched from Firebase Remote Config
+  // (key: 'chabbi') and cached in SharedPreferences. See RemoteConfigService.
   static const String chabbi = "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";
   static const openAiBaseUrl = 'https://api.openai.com/v1';
   static const openAiModel = 'gpt-4o-mini';
@@ -27,25 +30,26 @@ class AppConstants {
   static const rcOfferingId = 'pro';
 
   // ── Subscription Product IDs (match Google Play / App Store exactly) ───────
-  // These are the base plan IDs as shown in RevenueCat: "productId:basePlanId"
-  static const rcWeeklySubId  = 'weekly:weekly';   // $5.00/week
-  static const rcMonthlySubId = 'monthly:monthly'; // $17.00/month
-  static const rcYearlySubId  = 'yearly:yearly';   // $190.00/year
-
+  static const rcWeeklySubId  = 'weekly:weekly';
+  static const rcMonthlySubId = 'monthly:monthly';
+  static const rcYearlySubId  = 'yearly:yearly';
 
   /// Number of API hits (credits) consumed per analysis call.
-  static const double costPerApiHitUsd   = 0.006; // your OpenAI cost
-  static const double pricePerCreditUsd  = 0.02;  // what user pays per credit
-  static const int    creditsPerAnalysis = 1;      // 1 credit = 1 API hit
+  static const double costPerApiHitUsd  = 0.006;
+  static const double pricePerCreditUsd = 0.02;
+  static const int    creditsPerAnalysis = 1;
 
-  // Monthly credit grants per subscription tier
-  static const int weeklyCreditsPerCycle  = 250;  // $5  / 0.02
-  static const int monthlyCreditsPerCycle = 850;  // $17 / 0.02
-  static const int yearlyCreditsPerCycle  = 9500; // $190 / 0.02
+  // ── Credits per subscription cycle ─────────────────────────────────────────
+  // These are compile-time / offline FALLBACK defaults.
+  // At runtime they are overridden by Firebase Remote Config keys:
+  //   'weekly_credits_per_cycle', 'monthly_credits_per_cycle', 'yearly_credits_per_cycle'
+  // Cached in SharedPreferences by AdsProvider. Read via RemoteConfigService.
+  static const int weeklyCreditsPerCycle  = 250;   // $5  / 0.02
+  static const int monthlyCreditsPerCycle = 850;   // $17 / 0.02
+  static const int yearlyCreditsPerCycle  = 9500;  // $190 / 0.02
 
-  // Free tier — ONE-TIME lifetime free analyses (not per day)
+  // Free tier — ONE-TIME lifetime free analyses
   static const freeAnalysesTotal = 3;
-  // Keep alias for any legacy references
   static const freeAnalysesPerDay = freeAnalysesTotal;
 
   static void showErrorToast(BuildContext context, String message) {
@@ -58,12 +62,6 @@ class AppConstants {
       ),
     );
   }
-
-  // ── AdMob ──────────────────────────────────────────────────────────────────
-  static const admobBannerAndroid = 'ca-app-pub-3940256099942544/6300978111';
-  static const admobBannerIos     = 'ca-app-pub-3940256099942544/2934735716';
-  static const admobInterstitialAndroid = 'ca-app-pub-3940256099942544/1033173712';
-  static const admobInterstitialIos     = 'ca-app-pub-3940256099942544/4411468910';
 
   // ── Crypto Pairs ───────────────────────────────────────────────────────────
   static const cryptoPairs = [
@@ -112,8 +110,8 @@ class Radii {
 extension ContextExt on BuildContext {
   double get width  => MediaQuery.sizeOf(this).width;
   double get height => MediaQuery.sizeOf(this).height;
-  ThemeData get theme   => Theme.of(this);
+  ThemeData get theme    => Theme.of(this);
   ColorScheme get colors => Theme.of(this).colorScheme;
-  TextTheme get text    => Theme.of(this).textTheme;
-  bool get isDark       => Theme.of(this).brightness == Brightness.dark;
+  TextTheme get text     => Theme.of(this).textTheme;
+  bool get isDark        => Theme.of(this).brightness == Brightness.dark;
 }

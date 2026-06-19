@@ -2,9 +2,12 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../providers/ads_provider.dart';
+import '../../features/providers.dart';
 import '../../services/rating_service.dart';
 
 class ExitScreen extends StatefulWidget {
@@ -21,6 +24,7 @@ class _ExitScreenState extends State<ExitScreen>
   late Animation<Offset> _slideAnim;
 
   int _selectedStars = 0;
+  Widget? _adWidget;
 
   @override
   void initState() {
@@ -34,6 +38,16 @@ class _ExitScreenState extends State<ExitScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
     _ctrl.forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.read<SubscriptionProvider>().isPro) {
+        setState(() {
+          _adWidget = AdsProvider.getProvider().getAdWidget(
+            AdsProvider.getProvider().exit_screen_top,
+          );
+        });
+      }
+    });
   }
 
   @override
@@ -46,11 +60,9 @@ class _ExitScreenState extends State<ExitScreen>
 
   Future<void> _submitRating() async {
     if (_selectedStars == 0) return;
-
     await RatingService.instance.openPlayStore();
     await RatingService.instance.markRated();
-
-    if (mounted) Navigator.of(context).pop(); // back to home
+    if (mounted) Navigator.of(context).pop();
   }
 
   void _exitApp() {
@@ -87,14 +99,20 @@ class _ExitScreenState extends State<ExitScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // ── Native ad for free users ────────────────────────────
+                  if (!context.watch<SubscriptionProvider>().isPro &&
+                      _adWidget != null) ...[
+                    _adWidget!,
+                    const SizedBox(height: Insets.md),
+                  ],
+
                   // ── App icon header ─────────────────────────────────────
                   const SizedBox(height: Insets.xl),
                   Container(
                     width: 72,
                     height: 72,
                     decoration: BoxDecoration(
-                      gradient:
-                          LinearGradient(colors: [gold, goldSoft]),
+                      gradient: LinearGradient(colors: [gold, goldSoft]),
                       borderRadius: BorderRadius.circular(Radii.lg),
                       boxShadow: [
                         BoxShadow(
@@ -208,18 +226,14 @@ class _ExitScreenState extends State<ExitScreen>
                       height: 50,
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                              colors: [gold, goldSoft]),
-                          borderRadius:
-                              BorderRadius.circular(Radii.lg),
+                          gradient: LinearGradient(colors: [gold, goldSoft]),
+                          borderRadius: BorderRadius.circular(Radii.lg),
                         ),
                         child: TextButton(
-                          onPressed:
-                              _selectedStars > 0 ? _submitRating : null,
+                          onPressed: _selectedStars > 0 ? _submitRating : null,
                           style: TextButton.styleFrom(
                             shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(Radii.lg),
+                              borderRadius: BorderRadius.circular(Radii.lg),
                             ),
                           ),
                           child: Text(
@@ -281,18 +295,12 @@ class _ExitScreenState extends State<ExitScreen>
 
   String _ratingLabel(int stars) {
     switch (stars) {
-      case 1:
-        return 'Poor';
-      case 2:
-        return 'Fair';
-      case 3:
-        return 'Good';
-      case 4:
-        return 'Great!';
-      case 5:
-        return 'Excellent! 🎉';
-      default:
-        return '';
+      case 1: return 'Poor';
+      case 2: return 'Fair';
+      case 3: return 'Good';
+      case 4: return 'Great!';
+      case 5: return 'Excellent! 🎉';
+      default: return '';
     }
   }
 }

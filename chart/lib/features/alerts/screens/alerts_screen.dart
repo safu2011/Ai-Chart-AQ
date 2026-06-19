@@ -7,7 +7,7 @@ import '../../../models/price_alert.dart';
 import '../../../services/alerts_service.dart';
 import '../../../widgets/shared_widgets.dart';
 import '../../providers.dart';
-import '../../../services/ad_service.dart';
+import '../../../providers/ads_provider.dart';
 
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
@@ -20,11 +20,20 @@ class _AlertsScreenState extends State<AlertsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
 
+  Widget? _adWidget;
+
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!context.read<SubscriptionProvider>().isPro) {
+        setState(() {
+          _adWidget = AdsProvider.getProvider().getAdWidget(
+            AdsProvider.getProvider().alerts_screen_top,
+          );
+        });
+      }
       bool result = await AlertsService.instance.requestPermission();
       print("Permission granted = $result");
       result = await AlertsService.instance.isNotificationPermissionGranted();
@@ -97,7 +106,7 @@ class _AlertsScreenState extends State<AlertsScreen>
           ),
 
           // Ad banner for free users
-          if (!isPro) const _AlertsBannerAd(),
+          if (!isPro && _adWidget != null) _adWidget!,
 
           // Tab views
           Expanded(
@@ -541,18 +550,3 @@ class _ConditionBtn extends StatelessWidget {
   }
 }
 
-// ── Banner Ad Widget (for free users) ────────────────────────────────────────
-
-class _AlertsBannerAd extends StatelessWidget {
-  const _AlertsBannerAd();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: AppTheme.bgColor(context),
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: const AdBannerWidget(),
-    );
-  }
-}

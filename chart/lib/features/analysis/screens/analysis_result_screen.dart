@@ -13,6 +13,7 @@ import '../../../models/chart_analysis.dart';
 import '../../../widgets/shared_widgets.dart';
 import '../../paywall/paywall_screen.dart';
 import '../../providers.dart';
+import '../../../providers/ads_provider.dart';
 import '../../rating/rating_dialog.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
@@ -24,14 +25,25 @@ class AnalysisResultScreen extends StatefulWidget {
 }
 
 class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
+  Widget? _adWidget;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final subProv = context.read<SubscriptionProvider>();
+
+      // Load native ad for free users
+      if (!subProv.isPro) {
+        setState(() {
+          _adWidget = AdsProvider.getProvider().getAdWidget(
+            AdsProvider.getProvider().analysis_result_screen_middle,
+          );
+        });
+      }
+
       final analysisProv = context.read<AnalysisProvider>();
       if (analysisProv.state is! AnalysisIdle) return;
-
-      final subProv = context.read<SubscriptionProvider>();
 
       // Hook rating prompt after successful analysis
       final prevCallback = analysisProv.onAnalysisComplete;

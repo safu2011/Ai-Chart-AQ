@@ -17,6 +17,7 @@ import '../../history/screens/history_screen.dart';
 import '../../onboarding/user_guide_overlay.dart';
 import '../../paywall/paywall_screen.dart';
 import '../../providers.dart';
+import '../../../providers/ads_provider.dart';
 import '../../settings/screens/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -46,9 +47,21 @@ class _HomeScreenState extends State<HomeScreen>
   late final GlobalKey _guidekeyCameraBtn;
   late final GlobalKey _guideKeyQuickAccess;
 
+  Widget? _adWidget;
+
   @override
   void initState() {
     super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.read<SubscriptionProvider>().isPro) {
+        setState(() {
+          _adWidget = AdsProvider.getProvider().getAdWidget(
+            AdsProvider.getProvider().home_screen_middle,
+          );
+        });
+      }
+    });
 
     _guideKeyGallery     = widget.guideKeyGallery     ?? GlobalKey(debugLabel: 'guide_gallery');
     _guidekeyCameraBtn   = widget.guidekeyCameraBtn   ?? GlobalKey(debugLabel: 'guide_camera');
@@ -175,6 +188,10 @@ class _HomeScreenState extends State<HomeScreen>
                       const SizedBox(height: Insets.lg),
                       _buildQuickActionsSection(context),
                       const SizedBox(height: Insets.lg),
+                      if (!context.watch<SubscriptionProvider>().isPro && _adWidget != null)
+                        _adWidget!,
+                      if (!context.watch<SubscriptionProvider>().isPro && _adWidget != null)
+                        const SizedBox(height: Insets.md),
                       const DisclaimerBanner(
                           text: AppConstants.startupDisclaimer),
                       const SizedBox(height: Insets.xl),

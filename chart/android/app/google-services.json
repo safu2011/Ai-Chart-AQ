@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "160395378637",
+    "project_id": "ai-chart-analysis-ca9b2",
+    "storage_bucket": "ai-chart-analysis-ca9b2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:160395378637:android:e64f13666753a6b249ce84",
+        "android_client_info": {
+          "package_name": "com.aq.aichartanalyzer.cryptosignals"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC0wGEzr7RPlQo3EubAJ-Wboc1k8nHStmM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

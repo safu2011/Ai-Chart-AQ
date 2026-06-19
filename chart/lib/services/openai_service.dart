@@ -5,12 +5,13 @@ import 'package:dio/dio.dart';
 
 import '../core/constants/app_constants.dart';
 import '../models/chart_analysis.dart';
+import 'remote_config_service.dart';
 
 /// Handles all communication with the OpenAI Vision API.
 ///
-/// The API key is sourced exclusively from [AppConstants.chabbi],
-/// which is either supplied at build-time via --dart-define=OPENAI_API_KEY=sk-...
-/// or falls back to the 'YOUR_API_KEY_HERE' placeholder.
+/// The API key (chabbi) is resolved at call-time via [RemoteConfigService],
+/// which returns the Remote Config cached value or falls back to the
+/// compile-time constant [AppConstants.chabbi] when offline.
 class OpenAiService {
   static final OpenAiService instance = OpenAiService._();
   OpenAiService._();
@@ -81,15 +82,16 @@ If the image is not a financial chart, set sentiment to "Neutral", sentiment_sco
 
   /// Analyse a chart [imageFile] using GPT-4o Vision.
   ///
+  /// The API key is resolved at call-time: Remote Config cache takes priority,
+  /// falling back to the compile-time [AppConstants.chabbi] when offline.
   Future<ChartAnalysis> analyzeChart(File imageFile) async {
-    final apiKey = AppConstants.chabbi;
-    print('API Key prefix: ${apiKey.substring(0, 10)}...');
+    final apiKey = await RemoteConfigService.instance.getChabbi(AppConstants.chabbi);
+    print('API Key prefix: ${apiKey.length >= 10 ? apiKey.substring(0, 10) : apiKey}...');
     print('API Key length: ${apiKey.length}');
-    print("API key = $apiKey");
     if (apiKey.isEmpty || apiKey == 'YOUR_API_KEY_HERE') {
       throw Exception(
         'OpenAI API key is not configured. '
-        'Supply it via --dart-define=OPENAI_API_KEY=sk-...',
+        'Set the "chabbi" key in Firebase Remote Config.',
       );
     }
 

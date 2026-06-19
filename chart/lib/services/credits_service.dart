@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants/app_constants.dart';
+import 'remote_config_service.dart';
 import 'subscription_service.dart';
 
 
@@ -34,7 +35,7 @@ class CreditsService {
     if (tier == SubscriptionTier.none) return;
 
     final p = await SharedPreferences.getInstance();
-    final grant = _creditsForTier(tier);
+    final grant = await _creditsForTier(tier);
     await p.setInt(_kSubCredits, grant);
     await p.setString(_kSubTier, tier.name);
     if (expiration != null) {
@@ -116,7 +117,7 @@ class CreditsService {
     if (tierChanged || renewed) {
       // Discard old balance entirely and replace with the fresh allotment —
       // never add to what's left over from the prior cycle/tier.
-      final grant = _creditsForTier(tier);
+      final grant = await _creditsForTier(tier);
       await p.setInt(_kSubCredits, grant);
       await p.setString(_kSubTier, tierName);
       if (newExpirationMs != null) {
@@ -186,12 +187,19 @@ class CreditsService {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  static int _creditsForTier(SubscriptionTier tier) {
+  /// Returns credit allotment for [tier], checking Remote Config cache first
+  /// and falling back to compile-time [AppConstants] defaults when offline.
+  static Future<int> _creditsForTier(SubscriptionTier tier) async {
+    final rc = RemoteConfigService.instance;
     switch (tier) {
-      case SubscriptionTier.weekly:  return AppConstants.weeklyCreditsPerCycle;
-      case SubscriptionTier.monthly: return AppConstants.monthlyCreditsPerCycle;
-      case SubscriptionTier.yearly:  return AppConstants.yearlyCreditsPerCycle;
-      case SubscriptionTier.none:    return 0;
+      case SubscriptionTier.weekly:
+        return rc.getWeeklyCredits(AppConstants.weeklyCreditsPerCycle);
+      case SubscriptionTier.monthly:
+        return rc.getMonthlyCredits(AppConstants.monthlyCreditsPerCycle);
+      case SubscriptionTier.yearly:
+        return rc.getYearlyCredits(AppConstants.yearlyCreditsPerCycle);
+      case SubscriptionTier.none:
+        return 0;
     }
   }
 }

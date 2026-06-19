@@ -11,6 +11,7 @@ import '../../home/screens/home_screen.dart';
 import '../../onboarding/user_guide_overlay.dart';
 import '../../paywall/paywall_screen.dart';
 import '../../providers.dart';
+import '../../../providers/ads_provider.dart';
 import '../../rating/rating_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -22,6 +23,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String _version = '';
+  Widget? _adWidget;
 
   @override
   void initState() {
@@ -29,6 +31,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadInfo();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SubscriptionProvider>().refresh();
+      if (!context.read<SubscriptionProvider>().isPro) {
+        setState(() {
+          _adWidget = AdsProvider.getProvider().getAdWidget(
+            AdsProvider.getProvider().settings_screen_bottom,
+          );
+        });
+      }
     });
   }
 
@@ -177,6 +186,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: Insets.xl),
+          if (!context.watch<SubscriptionProvider>().isPro && _adWidget != null)
+            _adWidget!,
+          const SizedBox(height: Insets.md),
         ],
       ),
     );

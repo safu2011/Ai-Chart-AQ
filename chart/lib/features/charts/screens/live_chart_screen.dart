@@ -11,6 +11,7 @@ import '../../../models/chart_analysis.dart';
 import '../../../widgets/shared_widgets.dart';
 import '../../analysis/screens/analysis_result_screen.dart';
 import '../../providers.dart';
+import '../../../providers/ads_provider.dart';
 
 class LiveChartScreen extends StatefulWidget {
   const LiveChartScreen({super.key});
@@ -25,11 +26,23 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
   bool _showSearch = false;
   List<String> _searchResults = [];
 
+  // ── Ad widget (loaded in initState for free users) ────────────────────────
+  Widget? _adWidget;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<LiveChartProvider>().fetchData();
+
+      // Load native ad for free users
+      if (!context.read<SubscriptionProvider>().isPro) {
+        setState(() {
+          _adWidget = AdsProvider.getProvider().getAdWidget(
+            AdsProvider.getProvider().live_chart_screen_top,
+          );
+        });
+      }
     });
   }
 
@@ -81,6 +94,7 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
     final recents = liveChart.recentPairs;
     final candleState = liveChart.candleState;
     final tickerState = liveChart.tickerState;
+    final isPro = context.watch<SubscriptionProvider>().isPro;
 
     return Scaffold(
       backgroundColor: AppTheme.bgColor(context),
@@ -121,6 +135,10 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
           Column(
             children: [
               if (_showSearch) _buildSearchBar(),
+
+              // ── Native ad for free users (above ticker/chart) ────────────
+              if (!_showSearch && !isPro && _adWidget != null)
+                _adWidget!,
 
               if (!_showSearch)
                 tickerState == LoadState.loading
@@ -454,7 +472,7 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
     return Expanded(
       child: ListView.builder(
         padding: const EdgeInsets.all(Insets.md),
-        itemCount: 1, // single section wrapper
+        itemCount: 1,
         itemBuilder: (_, __) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -472,29 +490,36 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
                   const SizedBox(
                     width: 14,
                     height: 14,
-                    child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                        color: AppColors.gold, strokeWidth: 2),
                   )
                 else
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppColors.gold.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '${allPairs.length}',
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.gold),
+                      style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.gold),
                     ),
                   ),
               ],
             ),
             const SizedBox(height: 8),
-            ...allPairs.map((p) => _PairTile(pair: p, onTap: () => _selectPair(p))),
+            ...allPairs.map((p) =>
+                _PairTile(pair: p, onTap: () => _selectPair(p))),
             if (recents.isNotEmpty) ...[
               const SizedBox(height: Insets.md),
               const SectionHeader(title: 'Recent'),
               const SizedBox(height: 8),
-              ...recents.map((p) => _PairTile(pair: p, onTap: () => _selectPair(p))),
+              ...recents.map((p) =>
+                  _PairTile(pair: p, onTap: () => _selectPair(p))),
             ],
           ],
         ),
@@ -502,6 +527,8 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
     );
   }
 }
+
+// ── Supporting widgets ────────────────────────────────────────────────────────
 
 class _PairTile extends StatelessWidget {
   final String pair;
@@ -513,7 +540,7 @@ class _PairTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final base = pair.replaceAll('USDT', '');
     return ListTile(
-      iconColor: AppColors.gold, // explicit, avoids null-check in theme resolution
+      iconColor: AppColors.gold,
       textColor: AppColors.textPrimary,
       contentPadding:
           const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
@@ -577,13 +604,13 @@ class _FullscreenChartView extends StatelessWidget {
             child: candles.isEmpty
                 ? const Center(
                     child: Text('No data',
-                        style: TextStyle(color: AppColors.textSecondary)))
+                        style:
+                            TextStyle(color: AppColors.textSecondary)))
                 : Candlesticks(
                     candles: candles,
                     actions: const [],
                   ),
           ),
-          // Close button
           Positioned(
             top: MediaQuery.of(context).padding.top + 12,
             right: 16,

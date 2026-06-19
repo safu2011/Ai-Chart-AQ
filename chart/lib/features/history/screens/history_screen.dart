@@ -8,7 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/chart_analysis.dart';
 import '../../../widgets/shared_widgets.dart';
 import '../../providers.dart';
-import '../../../services/ad_service.dart';
+import '../../../providers/ads_provider.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -18,11 +18,20 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
+  Widget? _adWidget;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<HistoryProvider>().load();
+      if (!context.read<SubscriptionProvider>().isPro) {
+        setState(() {
+          _adWidget = AdsProvider.getProvider().getAdWidget(
+            AdsProvider.getProvider().history_screen_top,
+          );
+        });
+      }
     });
   }
 
@@ -46,20 +55,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
       body: Column(
         children: [
-          // Banner ad for free users
-          if (!context.watch<SubscriptionProvider>().isPro)
-            Container(
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              color: AppTheme.bgColor(context),
-              child: const AdBannerWidget(),
-            ),
+          // Native ad for free users (slot type controlled by Remote Config)
+          if (!context.watch<SubscriptionProvider>().isPro && _adWidget != null)
+            _adWidget!,
           Expanded(child: _buildBody(context, historyProv)),
         ],
       ),
     );
   }
-
   Widget _buildBody(BuildContext context, HistoryProvider historyProv) {
     switch (historyProv.loadState) {
       case LoadState.idle:
