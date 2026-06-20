@@ -11,11 +11,8 @@ import 'core/theme/app_theme.dart';
 import 'features/providers.dart';
 import 'features/splash/splash_screen.dart';
 import 'providers/ads_provider.dart';
-import 'services/alerts_service.dart';
 import 'services/subscription_service.dart';
 
-/// Global navigator key — used by AdsProvider.getProvider() and
-/// AppLifecycleReactor to access context outside the widget tree.
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
