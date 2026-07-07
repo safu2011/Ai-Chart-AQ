@@ -12,6 +12,8 @@ import '../../../widgets/shared_widgets.dart';
 import '../../analysis/screens/analysis_result_screen.dart';
 import '../../providers.dart';
 import '../../../providers/ads_provider.dart';
+import 'annotated_candle_chart.dart';
+
 
 class LiveChartScreen extends StatefulWidget {
   const LiveChartScreen({super.key});
@@ -143,54 +145,54 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
               if (!_showSearch)
                 tickerState == LoadState.loading
                     ? const SizedBox(
-                        height: 48,
-                        child: Center(
-                            child: LinearProgressIndicator(
-                                color: AppColors.gold,
-                                backgroundColor: AppColors.card)))
+                    height: 48,
+                    child: Center(
+                        child: LinearProgressIndicator(
+                            color: AppColors.gold,
+                            backgroundColor: AppColors.card)))
                     : tickerState == LoadState.loaded
-                        ? _buildTickerBar(liveChart.ticker)
-                        : const SizedBox.shrink(),
+                    ? _buildTickerBar(liveChart.ticker)
+                    : const SizedBox.shrink(),
 
               if (_showSearch && _searchResults.isNotEmpty)
                 _buildSearchResults()
               else if (_showSearch && _searchCtrl.text.isEmpty)
                 _buildPairLists(favorites, recents)
               else ...[
-                _buildTimeframeBar(interval),
-                Expanded(
-                  child: candleState == LoadState.loading
-                      ? const Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircularProgressIndicator(
-                                  color: AppColors.gold, strokeWidth: 2),
-                              SizedBox(height: 12),
-                              Text('Loading chart...',
-                                  style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 13)),
-                            ],
-                          ),
-                        )
-                      : candleState == LoadState.error
-                          ? EmptyStateWidget(
-                              icon: Icons.wifi_off_rounded,
-                              title: 'Failed to load',
-                              subtitle: 'Check your internet connection',
-                              action: GradientButton(
-                                label: 'Retry',
-                                onTap: () => context
-                                    .read<LiveChartProvider>()
-                                    .fetchData(),
-                                width: 120,
-                                height: 44,
-                              ),
-                            )
-                          : _buildChart(liveChart.candles),
-                ),
-              ],
+                  _buildTimeframeBar(interval),
+                  Expanded(
+                    child: candleState == LoadState.loading
+                        ? const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(
+                              color: AppColors.gold, strokeWidth: 2),
+                          SizedBox(height: 12),
+                          Text('Loading chart...',
+                              style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 13)),
+                        ],
+                      ),
+                    )
+                        : candleState == LoadState.error
+                        ? EmptyStateWidget(
+                      icon: Icons.wifi_off_rounded,
+                      title: 'Failed to load',
+                      subtitle: 'Check your internet connection',
+                      action: GradientButton(
+                        label: 'Retry',
+                        onTap: () => context
+                            .read<LiveChartProvider>()
+                            .fetchData(),
+                        width: 120,
+                        height: 44,
+                      ),
+                    )
+                        : _buildChart(liveChart.candles),
+                  ),
+                ],
             ],
           ),
 
@@ -251,7 +253,7 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
           horizontal: Insets.md, vertical: 10),
       decoration: const BoxDecoration(
         border:
-            Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
+        Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -266,7 +268,7 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
           const SizedBox(width: 8),
           Container(
             padding:
-                const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
             decoration: BoxDecoration(
               color: isUp
                   ? AppColors.emerald.withOpacity(0.1)
@@ -286,17 +288,39 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _TickerStat(
-                  label: 'H',
-                  value: ticker['highPrice'] as String? ?? '—'),
-              _TickerStat(
-                  label: 'L',
-                  value: ticker['lowPrice'] as String? ?? '—'),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _TickerStat(
+                      label: 'H',
+                      value: ticker['highPrice'] as String? ?? '—'),
+                  const SizedBox(width: 8),
+                  _TickerStat(
+                      label: 'L',
+                      value: ticker['lowPrice'] as String? ?? '—'),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '24h Vol: ${_fmtQuoteVolume(ticker['quoteVolume'] as String?)}',
+                style: const TextStyle(
+                    fontSize: 10, color: AppColors.textSecondary),
+              ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  /// Formats a raw quote-volume string (e.g. "979930840.12") into a
+  /// Binance-style compact figure (e.g. "979.93M").
+  String _fmtQuoteVolume(String? raw) {
+    final v = double.tryParse(raw ?? '') ?? 0;
+    if (v >= 1e9) return '${(v / 1e9).toStringAsFixed(2)}B';
+    if (v >= 1e6) return '${(v / 1e6).toStringAsFixed(2)}M';
+    if (v >= 1e3) return '${(v / 1e3).toStringAsFixed(2)}K';
+    return v.toStringAsFixed(2);
   }
 
   Widget _buildTimeframeBar(String selected) {
@@ -305,7 +329,7 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
       padding: const EdgeInsets.symmetric(horizontal: Insets.md),
       decoration: const BoxDecoration(
         border:
-            Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
+        Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
       ),
       child: ListView(
         scrollDirection: Axis.horizontal,
@@ -348,16 +372,19 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
   }
 
   Widget _buildChart(List<CandleData> candles) {
-    final chartCandles = candles.reversed
-        .map((c) => Candle(
-              date: c.time,
-              open: c.open,
-              high: c.high,
-              low: c.low,
-              close: c.close,
-              volume: c.volume,
-            ))
-        .toList();
+    final liveChart = context.read<LiveChartProvider>();
+    final pair = liveChart.selectedPair;
+    final interval = liveChart.selectedInterval;
+    final ticker = liveChart.ticker;
+
+    final currentPrice = double.tryParse(ticker['lastPrice'] as String? ?? '');
+    final changePercent =
+    double.tryParse(ticker['priceChangePercent'] as String? ?? '');
+    final highPrice = double.tryParse(ticker['highPrice'] as String? ?? '');
+    final lowPrice = double.tryParse(ticker['lowPrice'] as String? ?? '');
+    final quoteVolumeLabel = ticker['quoteVolume'] != null
+        ? _fmtQuoteVolume(ticker['quoteVolume'] as String?)
+        : null;
 
     return Screenshot(
       controller: _screenshotController,
@@ -365,22 +392,29 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
         children: [
           Container(
             color: AppColors.bg,
-            child: chartCandles.isEmpty
+            padding: const EdgeInsets.fromLTRB(4, 8, 2, 4),
+            child: candles.isEmpty
                 ? const EmptyStateWidget(
-                    icon: Icons.bar_chart_rounded,
-                    title: 'No chart data',
-                    subtitle: 'Could not load candle data for this pair.')
-                : Candlesticks(
-                    candles: chartCandles,
-                    actions: const [],
-                  ),
+                icon: Icons.bar_chart_rounded,
+                title: 'No chart data',
+                subtitle: 'Could not load candle data for this pair.')
+                : AnnotatedCandleChart(
+              candles: candles,
+              symbol: pair,
+              interval: interval,
+              currentPrice: currentPrice,
+              changePercent: changePercent,
+              highPrice: highPrice,
+              lowPrice: lowPrice,
+              quoteVolumeLabel: quoteVolumeLabel,
+            ),
           ),
           // Expand button overlay
           Positioned(
             top: 8,
             left: 8,
             child: GestureDetector(
-              onTap: () => _openFullscreen(chartCandles),
+              onTap: () => _openFullscreen(candles),
               child: Container(
                 width: 36,
                 height: 36,
@@ -399,7 +433,7 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
     );
   }
 
-  void _openFullscreen(List<Candle> candles) {
+  void _openFullscreen(List<CandleData> candles) {
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
@@ -415,21 +449,21 @@ class _LiveChartScreenState extends State<LiveChartScreen> {
   Widget _buildSearchBar() {
     return Container(
       padding:
-          const EdgeInsets.symmetric(horizontal: Insets.md, vertical: 8),
+      const EdgeInsets.symmetric(horizontal: Insets.md, vertical: 8),
       decoration: const BoxDecoration(
         border:
-            Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
+        Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
       ),
       child: TextField(
         controller: _searchCtrl,
         autofocus: true,
         style:
-            const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+        const TextStyle(color: AppColors.textPrimary, fontSize: 14),
         onChanged: _onSearch,
         decoration: InputDecoration(
           hintText: 'Search pair, e.g. BTC, ETH...',
           hintStyle:
-              const TextStyle(color: AppColors.textMuted, fontSize: 14),
+          const TextStyle(color: AppColors.textMuted, fontSize: 14),
           prefixIcon: const Icon(Icons.search_rounded,
               color: AppColors.textMuted, size: 18),
           filled: true,
@@ -543,7 +577,7 @@ class _PairTile extends StatelessWidget {
       iconColor: AppColors.gold,
       textColor: AppColors.textPrimary,
       contentPadding:
-          const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+      const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
       leading: Container(
         width: 36,
         height: 36,
@@ -583,7 +617,7 @@ class _TickerStat extends StatelessWidget {
     return Text(
       '$label: \$${v.toStringAsFixed(v > 100 ? 2 : 4)}',
       style:
-          const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+      const TextStyle(fontSize: 10, color: AppColors.textSecondary),
     );
   }
 }
@@ -591,25 +625,38 @@ class _TickerStat extends StatelessWidget {
 // ── Fullscreen Chart View ─────────────────────────────────────────────────────
 
 class _FullscreenChartView extends StatelessWidget {
-  final List<Candle> candles;
+  final List<CandleData> candles;
   const _FullscreenChartView({required this.candles});
 
   @override
   Widget build(BuildContext context) {
+    // The package's interactive Candlesticks widget (pinch-to-zoom/pan) is
+    // kept here for free exploration. It requires newest-first ordering.
+    final chartCandles = candles.reversed
+        .map((c) => Candle(
+      date: c.time,
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+      volume: c.volume,
+    ))
+        .toList();
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Stack(
         children: [
           Positioned.fill(
-            child: candles.isEmpty
+            child: chartCandles.isEmpty
                 ? const Center(
-                    child: Text('No data',
-                        style:
-                            TextStyle(color: AppColors.textSecondary)))
+                child: Text('No data',
+                    style:
+                    TextStyle(color: AppColors.textSecondary)))
                 : Candlesticks(
-                    candles: candles,
-                    actions: const [],
-                  ),
+              candles: chartCandles,
+              actions: const [],
+            ),
           ),
           Positioned(
             top: MediaQuery.of(context).padding.top + 12,
