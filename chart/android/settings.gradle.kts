@@ -24,6 +24,7 @@ plugins {
     id("org.jetbrains.kotlin.android") version "2.2.20" apply false
     id("com.google.gms.google-services") version "4.4.3" apply false
     id("com.google.firebase.crashlytics") version "2.9.9" apply false
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.10.0"
 }
 
 include(":app")
