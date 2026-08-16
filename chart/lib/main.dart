@@ -141,8 +141,34 @@ class _AiChartAnalyzerAppState extends State<AiChartAnalyzerApp> {
         darkTheme: AppTheme.dark,
         themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
         navigatorKey: navigatorKey,
+        // Wrap the whole app so every tap anywhere counts toward the
+        // "interstitial every 3 clicks" rule (userInteractionCounterLimit).
+        // loadAndShowInterstitialAd already handles the counting, the
+        // per-ad-slot timer gate, and re-preloading — this just feeds it taps.
+        builder: (context, child) => _GlobalInterstitialClickCounter(
+          child: child ?? const SizedBox.shrink(),
+        ),
         home: const SplashScreen(),
       ),
+    );
+  }
+}
+
+/// Counts taps anywhere in the app and asks AdsProvider to show an
+/// interstitial every N clicks (N = userInteractionCounterLimit, currently 3).
+/// AdsProvider itself decides whether enough taps/time have passed.
+class _GlobalInterstitialClickCounter extends StatelessWidget {
+  final Widget child;
+  const _GlobalInterstitialClickCounter({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerUp: (_) {
+        AdsProvider.getProvider().loadAndShowInterstitialAd(() {});
+      },
+      child: child,
     );
   }
 }

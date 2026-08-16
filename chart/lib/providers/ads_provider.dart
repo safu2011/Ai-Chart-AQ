@@ -14,20 +14,54 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 
 // ─── SharedPreferences keys ───────────────────────────────────────────────────
-const String _kAndroidAdId = 'rc_androidAdId';
-const String _kAndroidInterstitialId = 'rc_androidInterstitialId';
-const String _kAndroidNativeId = 'rc_androidNativeId';
-const String _kAndroidAppOpenId = 'rc_androidAppOpenId';
-const String _kAndroidBannerId = 'rc_androidBannerId';
-const String _kAndroidBannerCollapse = 'rc_androidBannerIdCollapsable';
-const String _kAndroidRewardAdId = 'rc_androidRewardAdId';
+// Note: ad unit IDs and ad-placement config no longer come from Remote Config
+// (see _kLocalRealAdsJson / _kLocalAdsConfigJson below), so they no longer
+// need SharedPreferences-cache keys. SHOW_ADS is still remote-driven.
 const String _kShowAds = 'rc_show_ads';
-const String _kAdsConfig = 'rc_ads_config';
 // Credit / API key keys
 const String _kChabbi = 'rc_chabbi';
 const String _kWeeklyCredits = 'rc_weekly_credits';
 const String _kMonthlyCredits = 'rc_monthly_credits';
 const String _kYearlyCredits = 'rc_yearly_credits';
+
+// ─── Locally-bundled ad configuration ─────────────────────────────────────
+// Ad unit IDs and ad-placement rules used to be fetched from Remote Config
+// keys "Real_Ads" / "Ads_configuration". Per product decision, they are now
+// parsed from these local JSON blobs so ad loading/placement NEVER waits on
+// a network Remote Config fetch. Only Remote Config-only values (chabbi API
+// key, credit amounts, SHOW_ADS / show_remote_paywall flags) still come from
+// Remote Config, fetched in parallel in the background (see
+// _fetchRemoteConfigInBackground below).
+const String _kLocalRealAdsJson = '''
+{
+  "androidAdId": "ca-app-pub-6600265429238791~5045662284",
+  "androidInterstitialId": "ca-app-pub-6600265429238791/2574723257",
+  "androidNativeId": "ca-app-pub-6600265429238791/8948559914",
+  "androidAppOpenId": "ca-app-pub-6600265429238791/1397372955",
+  "androidBannerId": "ca-app-pub-6600265429238791/1696755858",
+  "androidBannerIdCollapsable": "ca-app-pub-6600265429238791/1696755858",
+  "androidRewardAdId": "ca-app-pub-6600265429238791/1505184160"
+}
+''';
+
+const String _kLocalAdsConfigJson = '''
+{
+  "userInteractionCounterLimit": 3,
+  "interstital_timer_in_seconds": 1,
+  "ads_show_counter_limit": 1000,
+  "ads_clicked_counter_limit": 10,
+  "splash_screen_continue_ad_type": 1,
+  "splash_screen_bottom_ad": 1,
+  "on_boarding_screen_bottom_ad": 5,
+  "home_screen_middle": 5,
+  "history_screen_top": 1,
+  "alerts_screen_top": 5,
+  "settings_screen_bottom": 0,
+  "live_chart_screen_top": 5,
+  "analysis_result_screen_middle": 5,
+  "exit_screen_top": 1
+}
+''';
 
 class AdsProvider extends ChangeNotifier {
   static bool isShowPersonalizedAd = true;
@@ -77,6 +111,11 @@ class AdsProvider extends ChangeNotifier {
   InterstitialAd? _interstitialAd;
   RewardedAd? rewardedAd;
 
+  // Preloaded native ad for the home screen (requirement: pre-load
+  // home_screen_middle on splash so it's ready the instant Home opens).
+  NativeAd? _preloadedHomeNativeAd;
+  bool _preloadingHomeNativeAd = false;
+
   bool isInterstitialAdLoading = false;
   bool isRewardedAdLoading = false;
   int adLoadedCount = 0;
@@ -102,28 +141,100 @@ class AdsProvider extends ChangeNotifier {
 
   // ── Initialize ─────────────────────────────────────────────────────────────
   Future<bool> initialize(BuildContext context, {bool? showTestAds}) async {
-    print("MyLog Fetching data from remote config");
-    await initRemoteConfig(context, showTestAds: showTestAds);
+    // Ad unit IDs + ad placement rules are parsed from the local JSON blobs
+    // immediately — this never waits on a network call.
+    _applyLocalAdIds();
+    _applyLocalAdsConfig();
 
     if (Platform.isAndroid && SHOW_ADS) {
       await setAdMobAppId();
     }
 
     appOpenAdManager = AppOpenAdManager(androidAppOpenId);
+
+    // Remote Config is only used for chabbi/credits/SHOW_ADS/show_remote_paywall
+    // now, and it is fetched in the background in parallel — it is intentionally
+    // NOT awaited here so it can never delay ad loading or ad placement.
+    // ignore: unawaited_futures
+    _fetchRemoteConfigInBackground(context, showTestAds: showTestAds);
+
     if (await ConsentManager.canRequestAds()) {
-      if (AdsProvider.getProvider().splash_screen_continue_ad_type == 2) {
+      if (splash_screen_continue_ad_type == 2) {
         print("MyLog Loading loadApOpenAd");
         appOpenAdManager?.loadApOpenAd(null);
-      } else if (AdsProvider.getProvider().splash_screen_continue_ad_type ==
-          1) {
-        print("MyLog Loading loadInterstitialAd");
-        loadInterstitialAd(null);
       }
+      // Always keep an interstitial preloaded across the whole app so it can
+      // be shown instantly wherever it's needed (splash, paywall, every-3-clicks).
+      print("MyLog Preloading interstitial for entire app");
+      loadInterstitialAd(null);
+      // Preload the home screen native ad so it's ready the instant Home opens.
+      preloadHomeScreenNativeAd(context);
     } else {
       loadAdsOnStart = true;
     }
 
+    notifyListeners();
     return true;
+  }
+
+  void _applyLocalAdIds() {
+    final Map<String, dynamic> idsMap = jsonDecode(_kLocalRealAdsJson);
+    androidAdId = idsMap["androidAdId"] ?? androidAdId;
+    androidInterstitialId =
+        idsMap["androidInterstitialId"] ?? androidInterstitialId;
+    androidNativeId = idsMap["androidNativeId"] ?? androidNativeId;
+    androidAppOpenId = idsMap["androidAppOpenId"] ?? androidAppOpenId;
+    androidBannerId = idsMap["androidBannerId"] ?? androidBannerId;
+    androidBannerIdCollapsable =
+        idsMap["androidBannerIdCollapsable"] ?? androidBannerIdCollapsable;
+    androidRewardAdId = idsMap["androidRewardAdId"] ?? androidRewardAdId;
+    print("MyLog Ad unit IDs parsed locally (no Remote Config wait): $idsMap");
+  }
+
+  void _applyLocalAdsConfig() {
+    final Map<String, dynamic> jsonMap = jsonDecode(_kLocalAdsConfigJson);
+    userInteractionCounterLimit =
+        jsonMap["userInteractionCounterLimit"] ?? userInteractionCounterLimit;
+    interstital_timer_in_seconds = jsonMap["interstital_timer_in_seconds"] ??
+        interstital_timer_in_seconds;
+    ads_show_counter_limit =
+        jsonMap["ads_show_counter_limit"] ?? ads_show_counter_limit;
+    ads_clicked_counter_limit =
+        jsonMap["ads_clicked_counter_limit"] ?? ads_clicked_counter_limit;
+    splash_screen_continue_ad_type = jsonMap["splash_screen_continue_ad_type"] ??
+        splash_screen_continue_ad_type;
+    splash_screen_bottom_ad =
+        jsonMap["splash_screen_bottom_ad"] ?? splash_screen_bottom_ad;
+    on_boarding_screen_bottom_ad =
+        jsonMap["on_boarding_screen_bottom_ad"] ?? on_boarding_screen_bottom_ad;
+    home_screen_middle = jsonMap["home_screen_middle"] ?? home_screen_middle;
+    history_screen_top = jsonMap["history_screen_top"] ?? history_screen_top;
+    alerts_screen_top = jsonMap["alerts_screen_top"] ?? alerts_screen_top;
+    settings_screen_bottom =
+        jsonMap["settings_screen_bottom"] ?? settings_screen_bottom;
+    live_chart_screen_top =
+        jsonMap["live_chart_screen_top"] ?? live_chart_screen_top;
+    analysis_result_screen_middle = jsonMap["analysis_result_screen_middle"] ??
+        analysis_result_screen_middle;
+    exit_screen_top = jsonMap["exit_screen_top"] ?? exit_screen_top;
+    print(
+        "MyLog Ads placement config parsed locally (no Remote Config wait): $jsonMap");
+  }
+
+  // ── Preloaded home-screen native ad ───────────────────────────────────────
+  Future<void> preloadHomeScreenNativeAd(BuildContext ctx) async {
+    if (!SHOW_ADS) return;
+    if (home_screen_middle != SMALL_NATIVE_AD &&
+        home_screen_middle != MEDIUM_NATIVE_AD) {
+      return;
+    }
+    if (_preloadedHomeNativeAd != null || _preloadingHomeNativeAd) return;
+    _preloadingHomeNativeAd = true;
+    print("MyLog Preloading home_screen_middle native ad");
+    final ad = await _loadCustomNativeAd(ctx, androidNativeId);
+    _preloadedHomeNativeAd = ad;
+    _preloadingHomeNativeAd = false;
+    print("MyLog home_screen_middle native ad preloaded = ${ad != null}");
   }
 
   Future<void> setAdMobAppId() async {
@@ -171,6 +282,9 @@ class AdsProvider extends ChangeNotifier {
             if (functionToTrigger != null) {
               showInterstitialAd(
                   navigatorKey.currentContext!, functionToTrigger);
+            } else {
+              // Preload retry — keep trying to have one ready app-wide.
+              Timer(const Duration(seconds: 15), () => loadInterstitialAd(null));
             }
           },
         ),
@@ -257,6 +371,9 @@ class AdsProvider extends ChangeNotifier {
         userInteractionCounter = 0;
         functionToTrigger();
         lastInterstitialAdShownDateTime = DateTime.now();
+        // Keep an interstitial preloaded at all times (requirement: pre-load
+        // interstitial ad for entire app).
+        loadInterstitialAd(null);
         await Future.delayed(const Duration(seconds: 1));
         AppOpenAdManager.showAppOpenAd = true;
       },
@@ -266,6 +383,7 @@ class AdsProvider extends ChangeNotifier {
         if (kDebugMode) print('$ad onAdFailedToShowFullScreenContent: $error');
         ad.dispose();
         functionToTrigger();
+        loadInterstitialAd(null);
         await Future.delayed(const Duration(seconds: 1));
         AppOpenAdManager.showAppOpenAd = true;
       },
@@ -390,6 +508,26 @@ class AdsProvider extends ChangeNotifier {
   // ── Custom native ad (Android: uses custom XML layout via factory) ─────────
   Widget getCustomNativeAdWidget(BuildContext ctx, double width) {
     if (!SHOW_ADS) return const SizedBox();
+
+    // If a preloaded home-screen native ad is ready, show it instantly instead
+    // of waiting on a fresh load.
+    if (_preloadedHomeNativeAd != null) {
+      final ad = _preloadedHomeNativeAd!;
+      _preloadedHomeNativeAd = null;
+      // Preload the next one in the background for next time this screen shows.
+      preloadHomeScreenNativeAd(ctx);
+      return Container(
+        width: width,
+        height: 180,
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.grey.withOpacity(0.3), width: 0.5),
+          color: Colors.transparent,
+        ),
+        child: AdWidget(ad: ad),
+      );
+    }
 
     return FutureBuilder<NativeAd?>(
       future:
@@ -708,154 +846,66 @@ class AdsProvider extends ChangeNotifier {
     print("MyLog SHOW_ADS getShowAdsFromRemoteConfig = $SHOW_ADS");
   }
 
-  Future<void> initRemoteConfig(BuildContext ctx, {bool? showTestAds}) async {
-    log("showTestAds: $showTestAds");
+  /// Fetches Remote Config in the background for the values that are still
+  /// remote-driven: chabbi (OpenAI key), credit amounts, SHOW_ADS and
+  /// show_remote_paywall. This is called WITHOUT `await` from initialize(),
+  /// so ad unit IDs / ad placement (parsed locally) and ad loading are never
+  /// blocked or delayed by this network call.
+  Future<void> _fetchRemoteConfigInBackground(BuildContext ctx,
+      {bool? showTestAds}) async {
+    log("Fetching Remote Config in background (chabbi/credits/SHOW_ADS only)");
     try {
       remoteConfig = await setupRemoteConfig();
-      if (remoteConfig != null) {
-        // ── Ad unit IDs ──────────────────────────────────────────────────────
-        Map<String, dynamic> idsMap =
-            jsonDecode(remoteConfig!.getString('Real_Ads'));
-        if (showTestAds == true) {
-          idsMap = jsonDecode(remoteConfig!.getString('Test_Ads'));
-        }
-        print("MyLog remoteConfig idsMap = $idsMap");
-        androidAdId = idsMap["androidAdId"] ?? androidAdId;
-        androidInterstitialId =
-            idsMap["androidInterstitialId"] ?? androidInterstitialId;
-        androidNativeId = idsMap["androidNativeId"] ?? androidNativeId;
-        androidAppOpenId = idsMap["androidAppOpenId"] ?? androidAppOpenId;
-        androidBannerId = idsMap["androidBannerId"] ?? androidBannerId;
-        androidBannerIdCollapsable =
-            idsMap["androidBannerIdCollapsable"] ?? androidBannerIdCollapsable;
-        androidRewardAdId = idsMap["androidRewardAdId"] ?? androidRewardAdId;
-        getShowAdsFromRemoteConfig();
-
-        // Persist ad IDs to SharedPreferences for offline fallback
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_kAndroidAdId, androidAdId);
-        await prefs.setString(_kAndroidInterstitialId, androidInterstitialId);
-        await prefs.setString(_kAndroidNativeId, androidNativeId);
-        await prefs.setString(_kAndroidAppOpenId, androidAppOpenId);
-        await prefs.setString(_kAndroidBannerId, androidBannerId);
-        await prefs.setString(
-            _kAndroidBannerCollapse, androidBannerIdCollapsable);
-        await prefs.setString(_kAndroidRewardAdId, androidRewardAdId);
-        await prefs.setBool(_kShowAds, SHOW_ADS);
-
-        // ── Ads configuration (slot types, counters) ─────────────────────────
-        try {
-          final jsonString = remoteConfig!.getString('Ads_configuration');
-          final Map<String, dynamic> jsonMap = jsonDecode(jsonString);
-          userInteractionCounterLimit =
-              jsonMap["userInteractionCounterLimit"] ?? 3;
-          interstital_timer_in_seconds =
-              jsonMap["interstital_timer_in_seconds"] ?? 0;
-          ads_show_counter_limit = jsonMap["ads_show_counter_limit"] ?? 1000;
-          ads_clicked_counter_limit =
-              jsonMap["ads_clicked_counter_limit"] ?? 10;
-          splash_screen_continue_ad_type =
-              jsonMap["splash_screen_continue_ad_type"] ?? 2;
-          splash_screen_bottom_ad = jsonMap["splash_screen_bottom_ad"] ?? 0;
-          on_boarding_screen_bottom_ad =
-              jsonMap["on_boarding_screen_bottom_ad"] ?? 0;
-          home_screen_middle = jsonMap["home_screen_middle"] ?? 0;
-          history_screen_top = jsonMap["history_screen_top"] ?? 0;
-          alerts_screen_top = jsonMap["alerts_screen_top"] ?? 0;
-          settings_screen_bottom = jsonMap["settings_screen_bottom"] ?? 0;
-          live_chart_screen_top = jsonMap["live_chart_screen_top"] ?? 0;
-          analysis_result_screen_middle =
-              jsonMap["analysis_result_screen_middle"] ?? 0;
-          exit_screen_top = jsonMap["exit_screen_top"] ?? 0;
-
-          print("MyLog Ads_configuration jsonMap $jsonMap");
-
-          await prefs.setString(_kAdsConfig, jsonString);
-        } catch (e) {
-          print("MyLog Ads_configuration error $e");
-        }
-
-        // ── OpenAI key (chabbi) — independent from ads ────────────────────────
-        final chabbi = remoteConfig!.getString('chabbi');
-        if (chabbi.isNotEmpty) {
-          await prefs.setString(_kChabbi, chabbi);
-          print("MyLog chabbi fetched and cached from Remote Config");
-        }
-
-        // ── Credits per subscription cycle ────────────────────────────────────
-        final weeklyCredits = remoteConfig!.getInt('weekly_credits_per_cycle');
-        final monthlyCredits = remoteConfig!.getInt('monthly_credits_per_cycle');
-        final yearlyCredits = remoteConfig!.getInt('yearly_credits_per_cycle');
-        if (weeklyCredits > 0)
-          await prefs.setInt(_kWeeklyCredits, weeklyCredits);
-        if (monthlyCredits > 0)
-          await prefs.setInt(_kMonthlyCredits, monthlyCredits);
-        if (yearlyCredits > 0)
-          await prefs.setInt(_kYearlyCredits, yearlyCredits);
+      if (remoteConfig == null) {
         print(
-            "MyLog credits fetched from Remote Config: w=$weeklyCredits m=$monthlyCredits y=$yearlyCredits");
-
-        print("MyLog SHOW_ADS 1 = $SHOW_ADS");
-      } else {
-        print(
-            "MyLog remote config was null — loading from SharedPreferences cache");
-        await _loadCachedRemoteValues();
+            "MyLog remote config was null — loading cached chabbi/credits/SHOW_ADS");
+        await _loadCachedChabbiAndCredits();
+        notifyListeners();
+        return;
       }
-      print("MyLog SHOW_ADS value = $SHOW_ADS");
+
+      getShowAdsFromRemoteConfig();
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kShowAds, SHOW_ADS);
+
+      // ── OpenAI key (chabbi) ────────────────────────────────────────────
+      final chabbi = remoteConfig!.getString('chabbi');
+      if (chabbi.isNotEmpty) {
+        await prefs.setString(_kChabbi, chabbi);
+        print("MyLog chabbi fetched and cached from Remote Config");
+      }
+
+      // ── Credits per subscription cycle ──────────────────────────────────
+      final weeklyCredits = remoteConfig!.getInt('weekly_credits_per_cycle');
+      final monthlyCredits = remoteConfig!.getInt('monthly_credits_per_cycle');
+      final yearlyCredits = remoteConfig!.getInt('yearly_credits_per_cycle');
+      if (weeklyCredits > 0) {
+        await prefs.setInt(_kWeeklyCredits, weeklyCredits);
+      }
+      if (monthlyCredits > 0) {
+        await prefs.setInt(_kMonthlyCredits, monthlyCredits);
+      }
+      if (yearlyCredits > 0) {
+        await prefs.setInt(_kYearlyCredits, yearlyCredits);
+      }
+      print(
+          "MyLog Remote Config (background) applied: SHOW_ADS=$SHOW_ADS show_remote_paywall=$show_remote_paywall w=$weeklyCredits m=$monthlyCredits y=$yearlyCredits");
       notifyListeners();
     } catch (e) {
-      print("MyLog Remote Config init ERROR = $e");
-      await _loadCachedRemoteValues();
+      print("MyLog Remote Config background fetch ERROR = $e");
+      await _loadCachedChabbiAndCredits();
+      notifyListeners();
     }
   }
 
-  /// Load previously-cached Remote Config values from SharedPreferences
-  /// so the app works fully offline after first launch.
-  Future<void> _loadCachedRemoteValues() async {
+  /// Loads the last-known SHOW_ADS flag from SharedPreferences so the app
+  /// works fully offline. chabbi/credits already fall back to
+  /// RemoteConfigService's own cached-value + AppConstants defaults.
+  Future<void> _loadCachedChabbiAndCredits() async {
     final prefs = await SharedPreferences.getInstance();
-    androidAdId = prefs.getString(_kAndroidAdId) ?? androidAdId;
-    androidInterstitialId =
-        prefs.getString(_kAndroidInterstitialId) ?? androidInterstitialId;
-    androidNativeId = prefs.getString(_kAndroidNativeId) ?? androidNativeId;
-    androidAppOpenId = prefs.getString(_kAndroidAppOpenId) ?? androidAppOpenId;
-    androidBannerId = prefs.getString(_kAndroidBannerId) ?? androidBannerId;
-    androidBannerIdCollapsable =
-        prefs.getString(_kAndroidBannerCollapse) ?? androidBannerIdCollapsable;
-    androidRewardAdId =
-        prefs.getString(_kAndroidRewardAdId) ?? androidRewardAdId;
     SHOW_ADS = prefs.getBool(_kShowAds) ?? SHOW_ADS;
-
-    final configJson = prefs.getString(_kAdsConfig);
-    if (configJson != null) {
-      try {
-        final Map<String, dynamic> jsonMap = jsonDecode(configJson);
-        userInteractionCounterLimit = jsonMap["userInteractionCounterLimit"] ??
-            userInteractionCounterLimit;
-        interstital_timer_in_seconds =
-            jsonMap["interstital_timer_in_seconds"] ??
-                interstital_timer_in_seconds;
-        ads_show_counter_limit =
-            jsonMap["ads_show_counter_limit"] ?? ads_show_counter_limit;
-        ads_clicked_counter_limit =
-            jsonMap["ads_clicked_counter_limit"] ?? ads_clicked_counter_limit;
-        home_screen_middle =
-            jsonMap["home_screen_middle"] ?? home_screen_middle;
-        history_screen_top =
-            jsonMap["history_screen_top"] ?? history_screen_top;
-        alerts_screen_top = jsonMap["alerts_screen_top"] ?? alerts_screen_top;
-        settings_screen_bottom =
-            jsonMap["settings_screen_bottom"] ?? settings_screen_bottom;
-        live_chart_screen_top =
-            jsonMap["live_chart_screen_top"] ?? live_chart_screen_top;
-        analysis_result_screen_middle =
-            jsonMap["analysis_result_screen_middle"] ??
-                analysis_result_screen_middle;
-        exit_screen_top = jsonMap["exit_screen_top"] ?? exit_screen_top;
-      } catch (e) {
-        print("MyLog _loadCachedRemoteValues Ads_configuration parse error $e");
-      }
-    }
-    print("MyLog Loaded cached remote values from SharedPreferences");
+    print("MyLog Loaded cached SHOW_ADS from SharedPreferences (offline)");
   }
 
   Future<FirebaseRemoteConfig> setupRemoteConfig() async {

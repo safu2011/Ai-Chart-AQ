@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../features/providers.dart';
+import '../../providers/ads_provider.dart';
 import '../home/screens/home_screen.dart';
 import '../onboarding/user_guide_overlay.dart';
 import '../paywall/paywall_screen.dart';
@@ -220,6 +221,21 @@ class _SplashScreenState extends State<SplashScreen>
           ),
         ],
       ),
+    );
+  }
+
+  bool _getStartedTapped = false;
+
+  /// "Get Started" button handler — shows an interstitial ad unconditionally
+  /// (no counter/timer checks) before continuing to `_proceed()`.
+  void _onGetStartedTap() {
+    if (_getStartedTapped) return;
+    _getStartedTapped = true;
+    AdsProvider.getProvider().loadAndShowInterstitialAd(
+      () {
+        if (mounted) _proceed();
+      },
+      showAdWithoutCounterCheck: true,
     );
   }
 
@@ -441,7 +457,7 @@ class _SplashScreenState extends State<SplashScreen>
                     child: ScaleTransition(
                       scale: _buttonScale,
                       child: GestureDetector(
-                        onTap: _proceed,
+                        onTap: _onGetStartedTap,
                         child: Container(
                           width: double.infinity,
                           height: 54,

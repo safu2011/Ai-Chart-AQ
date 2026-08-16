@@ -22,7 +22,7 @@ class RatingService {
 
   // ── Play Store URL ─────────────────────────────────────────────────────────
   /// Replace YOUR_PACKAGE_ID with your actual Android package name.
-  static const String _playStorePackageId = 'com.example.chart';
+  static const String _playStorePackageId = 'com.aq.aichartanalyzer.cryptosignals';
 
   static Uri get _playStoreUri =>
       Uri.parse('market://details?id=$_playStorePackageId');

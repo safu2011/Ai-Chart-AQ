@@ -7,6 +7,8 @@ import '../../core/theme/app_theme.dart';
 import '../../widgets/shared_widgets.dart';
 import '../providers.dart';
 import '../../services/subscription_service.dart';
+import '../../providers/ads_provider.dart';
+import '../../main.dart';
 class PaywallScreen extends StatefulWidget {
   final bool isModal;
   const PaywallScreen({super.key, this.isModal = false});
@@ -41,6 +43,21 @@ class _PaywallScreenState extends State<PaywallScreen>
   @override
   void dispose() {
     _animCtrl.dispose();
+    // When the subscription screen is closed and the user is still not
+    // premium/subscribed, show an interstitial ad every time — no counter or
+    // timer checks apply here.
+    final ctx = navigatorKey.currentContext;
+    if (ctx != null) {
+      final isPro = ctx.read<SubscriptionProvider>().isPro;
+      if (!isPro) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          AdsProvider.getProvider().loadAndShowInterstitialAd(
+            () {},
+            showAdWithoutCounterCheck: true,
+          );
+        });
+      }
+    }
     super.dispose();
   }
 

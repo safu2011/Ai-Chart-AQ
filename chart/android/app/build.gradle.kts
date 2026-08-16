@@ -27,8 +27,8 @@ android {
         applicationId = "com.aq.aichartanalyzer.cryptosignals"
         minSdk = flutter.minSdkVersion
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.0.4"
+        versionCode = 7
+        versionName = "1.0.7"
     }
 
     buildTypes {
@@ -54,9 +54,6 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-crashlytics")
-
-    // Billing
-    implementation("com.android.billingclient:billing:9.0.0")
 
     // CardView for custom native ad layout
     implementation("androidx.cardview:cardview:1.0.0")

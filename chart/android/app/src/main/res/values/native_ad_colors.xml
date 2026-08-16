@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Custom native ad text colors — light mode -->
+    <color name="native_ad_headline_text">#000000</color>
+    <color name="native_ad_advertiser_text">#1D1D1D</color>
+    <color name="native_ad_body_text">#1D1D1D</color>
+</resources>
