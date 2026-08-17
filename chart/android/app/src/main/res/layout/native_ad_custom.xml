@@ -6,125 +6,115 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
 
-    <androidx.cardview.widget.CardView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="0dp"
-        app:cardCornerRadius="6dp"
-        app:cardBackgroundColor="@android:color/transparent"
-        app:cardElevation="0dp">
+        android:orientation="vertical"
+        android:background="@drawable/bg_light"
+        android:paddingVertical="8dp"
+        android:paddingHorizontal="8dp">
 
-        <!-- Border wrapper -->
+        <!-- Top Row: Image + Text Info -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
             android:background="@android:color/transparent"
-            android:paddingVertical="8dp"
-            android:paddingHorizontal="8dp">
+            android:orientation="horizontal">
 
-            <!-- Top Row: Image + Text Info -->
+            <!-- Ad Image (left side) -->
+            <ImageView
+                android:id="@+id/ad_app_icon"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:scaleType="centerCrop"
+                android:background="@drawable/rounded_image_bg"
+                android:clipToOutline="true" />
+
+            <!-- Right side text content -->
             <LinearLayout
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:background="@android:color/transparent"
-                android:orientation="horizontal">
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:gravity="top">
 
-                <!-- Ad Image (left side) -->
-                <ImageView
-                    android:id="@+id/ad_app_icon"
-                    android:layout_width="100dp"
-                    android:layout_height="100dp"
-                    android:scaleType="centerCrop"
-                    android:background="@drawable/rounded_image_bg"
-                    android:clipToOutline="true" />
-
-                <!-- Right side text content -->
-                <LinearLayout
-                    android:layout_width="0dp"
+                <!-- Headline -->
+                <TextView
+                    android:id="@+id/ad_headline"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:paddingStart="16dp"
-                    android:gravity="top">
+                    android:textColor="@color/native_ad_headline_text"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:lineSpacingMultiplier="1.2"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:singleLine="true" />
 
-                    <!-- Headline -->
+                <!-- AD badge + Advertiser row -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="4dp">
+
+                    <!-- AD Badge -->
                     <TextView
-                        android:id="@+id/ad_headline"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:textColor="@color/native_ad_headline_text"
-                        android:textSize="20sp"
-                        android:textStyle="bold"
-                        android:lineSpacingMultiplier="1.2"
-                        android:maxLines="1"
-                        android:ellipsize="end"
-                        android:singleLine="true" />
-
-                    <!-- AD badge + Advertiser row -->
-                    <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginTop="4dp">
+                        android:text="AD"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:paddingStart="7dp"
+                        android:paddingEnd="7dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="4dp"
+                        android:background="@drawable/ad_badge_bg" />
 
-                        <!-- AD Badge -->
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="AD"
-                            android:textColor="#FFFFFF"
-                            android:textSize="11sp"
-                            android:textStyle="bold"
-                            android:paddingStart="7dp"
-                            android:paddingEnd="7dp"
-                            android:paddingTop="4dp"
-                            android:paddingBottom="4dp"
-                            android:background="@drawable/ad_badge_bg" />
-
-                        <!-- Advertiser name -->
-                        <TextView
-                            android:id="@+id/ad_advertiser"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textColor="@color/native_ad_advertiser_text"
-                            android:textSize="14sp"
-                            android:maxLines="1"
-                            android:ellipsize="end"
-                            android:singleLine="true"
-                            android:layout_marginStart="8dp" />
-
-                    </LinearLayout>
-
-                    <!-- Body text -->
+                    <!-- Advertiser name -->
                     <TextView
-                        android:id="@+id/ad_body"
-                        android:layout_width="match_parent"
+                        android:id="@+id/ad_advertiser"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="@color/native_ad_body_text"
-                        android:textSize="13sp"
-                        android:layout_marginTop="4dp"
-                        android:lineSpacingMultiplier="1.3"
-                        android:maxLines="2"
-                        android:ellipsize="end" />
+                        android:textColor="@color/native_ad_advertiser_text"
+                        android:textSize="14sp"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        android:singleLine="true"
+                        android:layout_marginStart="8dp" />
 
                 </LinearLayout>
+
+                <!-- Body text -->
+                <TextView
+                    android:id="@+id/ad_body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/native_ad_body_text"
+                    android:textSize="13sp"
+                    android:layout_marginTop="4dp"
+                    android:lineSpacingMultiplier="1.3"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
+
             </LinearLayout>
-
-            <!-- CTA Button -->
-            <Button
-                android:id="@+id/ad_call_to_action"
-                android:layout_width="match_parent"
-                android:layout_height="53dp"
-                android:layout_marginTop="6dp"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:background="@drawable/cta_button_bg"
-                android:stateListAnimator="@null" />
-
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
+
+        <!-- CTA Button -->
+        <Button
+            android:id="@+id/ad_call_to_action"
+            android:layout_width="match_parent"
+            android:layout_height="53dp"
+            android:layout_marginTop="6dp"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:background="@drawable/cta_button_bg"
+            android:stateListAnimator="@null" />
+
+    </LinearLayout>
 
 </com.google.android.gms.ads.nativead.NativeAdView>

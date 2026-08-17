@@ -104,6 +104,8 @@ class _AiChartAnalyzerAppState extends State<AiChartAnalyzerApp> {
           .then((_) {
         print("MyLog Got Response from AdsProvider");
         if (AdsProvider.loadAdsOnStart) {
+          AdsProvider.getProvider().loadInterstitialAd(null);
+          AdsProvider.getProvider().preloadHomeScreenNativeAd(navigatorKey.currentContext!);
           final p = AdsProvider.getProvider();
           if (p.splash_screen_continue_ad_type == 2) {
             p.appOpenAdManager?.loadApOpenAd(null);

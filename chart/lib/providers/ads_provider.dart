@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
+import 'package:chart/core/theme/app_theme.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/constants/app_constants.dart';
 import '../features/providers.dart';
 import '../main.dart';
 
@@ -141,10 +143,13 @@ class AdsProvider extends ChangeNotifier {
   static bool loadAdsOnStart = false;
 
   // ── Initialize ─────────────────────────────────────────────────────────────
-  Future<bool> initialize(BuildContext context, {bool? showTestAds}) async {
+  Future<bool> initialize(BuildContext context, {bool showTestAds = true}) async {
     // Ad unit IDs + ad placement rules are parsed from the local JSON blobs
     // immediately — this never waits on a network call.
-    _applyLocalAdIds();
+    if(!showTestAds){
+      _applyLocalAdIds();
+    }
+
     _applyLocalAdsConfig();
 
     if (Platform.isAndroid && SHOW_ADS) {
@@ -158,19 +163,19 @@ class AdsProvider extends ChangeNotifier {
     // NOT awaited here so it can never delay ad loading or ad placement.
     // ignore: unawaited_futures
     _fetchRemoteConfigInBackground(context, showTestAds: showTestAds);
-
+    print("MyLog canRequestAds calling");
     if (await ConsentManager.canRequestAds()) {
+      print("MyLog canRequestAds returned true");
       if (splash_screen_continue_ad_type == 2) {
         print("MyLog Loading loadApOpenAd");
         appOpenAdManager?.loadApOpenAd(null);
       }
-      // Always keep an interstitial preloaded across the whole app so it can
-      // be shown instantly wherever it's needed (splash, paywall, every-3-clicks).
       print("MyLog Preloading interstitial for entire app");
       loadInterstitialAd(null);
       // Preload the home screen native ad so it's ready the instant Home opens.
       preloadHomeScreenNativeAd(context);
     } else {
+      print("MyLog canRequestAds returned false");
       loadAdsOnStart = true;
     }
 
@@ -516,17 +521,9 @@ class AdsProvider extends ChangeNotifier {
     if (_preloadedHomeNativeAd != null) {
       final ad = _preloadedHomeNativeAd!;
       _preloadedHomeNativeAd = null;
-      // Preload the next one in the background for next time this screen shows.
-      preloadHomeScreenNativeAd(ctx);
       return Container(
         width: width,
         height: 180,
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.grey.withOpacity(0.3), width: 0.5),
-          color: Colors.transparent,
-        ),
         child: AdWidget(ad: ad),
       );
     }
@@ -539,18 +536,28 @@ class AdsProvider extends ChangeNotifier {
           return Container(
             height: 180,
             width: width,
-            margin: const EdgeInsets.symmetric(horizontal: 6),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              border:
-                  Border.all(color: Colors.grey.withOpacity(0.3), width: 0.5),
-              color: Colors.transparent,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: ThemeProvider.getProvider().isDark
+                    ? const [Color(0xFF1A1F2E), Color(0xFF0F1520)]
+                    : const [Color(0xFFFFFFFF), Color(0xFFF0F4FF)],
+              ),
+              borderRadius: BorderRadius.circular(Radii.xl),
+              border: Border.all(color: ThemeProvider.getProvider().isDark ? AppColorsDark.borderGlow : AppColorsLight.borderGlow),
+              boxShadow: [
+                BoxShadow(
+                    color: AppTheme.gold(navigatorKey.currentContext!).withOpacity(0.06),
+                    blurRadius: 30,
+                    offset: const Offset(0, 10))
+              ],
             ),
-            child: const Center(
+            child: Center(
               child: Text(
-                "Fetching ad content...",
+                "Loading ad content...",
                 style: TextStyle(
-                    color: Colors.grey,
+                    color: ThemeProvider.getProvider().isDark ? Color(0xFFFFFFFF) : Color(0xFF1A1F2E),
                     fontWeight: FontWeight.w600,
                     fontSize: 12),
               ),
@@ -561,12 +568,6 @@ class AdsProvider extends ChangeNotifier {
         return Container(
           width: width,
           height: 180,
-          margin: const EdgeInsets.symmetric(horizontal: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.grey.withOpacity(0.3), width: 0.5),
-            color: Colors.transparent,
-          ),
           child: AdWidget(ad: snapshot.data!),
         );
       },
@@ -574,6 +575,7 @@ class AdsProvider extends ChangeNotifier {
   }
 
   Future<NativeAd?> _loadCustomNativeAd(BuildContext context, String id) async {
+    print("MYLOG DARK MODE = ${ThemeProvider.getProvider().isDark}");
     final completer = Completer<NativeAd?>();
     NativeAd nativeAd = NativeAd.fromAdManagerRequest(
       adUnitId: id,

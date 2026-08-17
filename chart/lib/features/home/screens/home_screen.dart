@@ -187,16 +187,16 @@ class _HomeScreenState extends State<HomeScreen>
                       const SizedBox(height: Insets.md),
                       _buildWelcomeCard(context),
                       const SizedBox(height: Insets.lg),
-                      _buildUploadSection(context),
-                      const SizedBox(height: Insets.lg),
-                      _buildQuickActionsSection(context),
-                      const SizedBox(height: Insets.lg),
                       if (!context.watch<SubscriptionProvider>().isPro &&
                           _adWidget != null)
                         _adWidget!,
                       if (!context.watch<SubscriptionProvider>().isPro &&
                           _adWidget != null)
                         const SizedBox(height: Insets.md),
+                      _buildUploadSection(context),
+                      const SizedBox(height: Insets.lg),
+                      _buildQuickActionsSection(context),
+                      const SizedBox(height: Insets.lg),
                       const DisclaimerBanner(
                           text: AppConstants.startupDisclaimer),
                       const SizedBox(height: Insets.xl),
