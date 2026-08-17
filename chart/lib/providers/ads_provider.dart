@@ -11,6 +11,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../features/providers.dart';
 import '../main.dart';
 
 // ─── SharedPreferences keys ───────────────────────────────────────────────────
@@ -301,6 +302,7 @@ class AdsProvider extends ChangeNotifier {
     bool? showAdWithoutCounterCheck,
     String? adId,
   }) async {
+    print("MYLOG = loadAndShowInterstitialAd called");
     if (adsShownCounter > ads_show_counter_limit) {
       functionToTrigger();
       return;
@@ -326,14 +328,14 @@ class AdsProvider extends ChangeNotifier {
           if (_interstitialAd == null) {
             loadInterstitialAd(functionToTrigger, adId: adId);
           } else {
-            Timer(
-              Duration(seconds: interstital_ad_loading_screen_time_in_sec),
-              () async {
+            // Timer(
+            //   Duration(seconds: interstital_ad_loading_screen_time_in_sec),
+            //   () async {
                 isInterstitialAdLoading = false;
                 showInterstitialAd(
                     navigatorKey.currentContext!, functionToTrigger);
-              },
-            );
+            //   },
+            // );
           }
         } else {
           functionToTrigger();
@@ -424,10 +426,10 @@ class AdsProvider extends ChangeNotifier {
       if (rewardedAd == null) {
         loadRewardedAd(functionToTrigger);
       } else {
-        Timer(Duration(seconds: interstital_ad_loading_screen_time_in_sec),
-            () async {
+       // Timer(Duration(seconds: interstital_ad_loading_screen_time_in_sec),
+        //    () async {
           showRewardAd(functionToTrigger);
-        });
+        //});
       }
     } else {
       functionToTrigger();
@@ -575,7 +577,7 @@ class AdsProvider extends ChangeNotifier {
     final completer = Completer<NativeAd?>();
     NativeAd nativeAd = NativeAd.fromAdManagerRequest(
       adUnitId: id,
-      factoryId: 'customNativeAd',
+      factoryId: ThemeProvider.getProvider().isDark ? 'customNativeAdLightText':'customNativeAd',
       adManagerRequest: AdManagerAdRequest(),
       listener: NativeAdListener(
         onAdLoaded: (ad) => completer.complete(ad as NativeAd),
@@ -1076,9 +1078,9 @@ class AppOpenAdManager {
     if (_appOpenAd == null) {
       loadApOpenAd(functionToCall, adId: adID, showAdAfterLoading: true);
     } else {
-      Timer(const Duration(seconds: 2), () async {
+      //Timer(const Duration(seconds: 2), () async {
         showAppOpenAdIfAvailable(functionToCall);
-      });
+     // });
     }
   }
 

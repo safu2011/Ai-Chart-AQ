@@ -63,9 +63,12 @@ class _HomeScreenState extends State<HomeScreen>
       }
     });
 
-    _guideKeyGallery     = widget.guideKeyGallery     ?? GlobalKey(debugLabel: 'guide_gallery');
-    _guidekeyCameraBtn   = widget.guidekeyCameraBtn   ?? GlobalKey(debugLabel: 'guide_camera');
-    _guideKeyQuickAccess = widget.guideKeyQuickAccess ?? GlobalKey(debugLabel: 'guide_quick');
+    _guideKeyGallery =
+        widget.guideKeyGallery ?? GlobalKey(debugLabel: 'guide_gallery');
+    _guidekeyCameraBtn =
+        widget.guidekeyCameraBtn ?? GlobalKey(debugLabel: 'guide_camera');
+    _guideKeyQuickAccess =
+        widget.guideKeyQuickAccess ?? GlobalKey(debugLabel: 'guide_quick');
 
     _animCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 700));
@@ -80,14 +83,14 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _initSharingIntent() {
     _intentSub = ReceiveSharingIntent.instance.getMediaStream().listen(
-          (List<SharedMediaFile> files) {
+      (List<SharedMediaFile> files) {
         if (files.isNotEmpty) _handleSharedImagePath(files.first.path);
       },
       onError: (_) {},
     );
 
     ReceiveSharingIntent.instance.getInitialMedia().then(
-          (List<SharedMediaFile> files) {
+      (List<SharedMediaFile> files) {
         if (files.isNotEmpty) {
           final path = files.first.path;
           ReceiveSharingIntent.instance.reset();
@@ -128,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen>
   // ── Credit-gated image pick ───────────────────────────────────────────────
 
   Future<void> _pickImage(ImageSource source) async {
-    final subProv    = context.read<SubscriptionProvider>();
+    final subProv = context.read<SubscriptionProvider>();
     final canAnalyze = await subProv.canAnalyze();
 
     if (!canAnalyze && mounted) {
@@ -141,7 +144,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     final picker = ImagePicker();
-    final xFile  = await picker.pickImage(source: source, imageQuality: 90);
+    final xFile = await picker.pickImage(source: source, imageQuality: 90);
     if (xFile == null || !mounted) return;
 
     Navigator.of(context).push(
@@ -153,8 +156,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final bgColor       = AppTheme.bgColor(context);
-    final borderColor   = AppTheme.borderColor(context);
+    final bgColor = AppTheme.bgColor(context);
+    final borderColor = AppTheme.borderColor(context);
     final textSecondary = AppTheme.textSecondary(context);
 
     return PopScope(
@@ -188,9 +191,11 @@ class _HomeScreenState extends State<HomeScreen>
                       const SizedBox(height: Insets.lg),
                       _buildQuickActionsSection(context),
                       const SizedBox(height: Insets.lg),
-                      if (!context.watch<SubscriptionProvider>().isPro && _adWidget != null)
+                      if (!context.watch<SubscriptionProvider>().isPro &&
+                          _adWidget != null)
                         _adWidget!,
-                      if (!context.watch<SubscriptionProvider>().isPro && _adWidget != null)
+                      if (!context.watch<SubscriptionProvider>().isPro &&
+                          _adWidget != null)
                         const SizedBox(height: Insets.md),
                       const DisclaimerBanner(
                           text: AppConstants.startupDisclaimer),
@@ -209,24 +214,24 @@ class _HomeScreenState extends State<HomeScreen>
   // ── Credits Status Card ───────────────────────────────────────────────────
 
   Widget _buildCreditsCard(BuildContext context) {
-    final sub         = context.watch<SubscriptionProvider>();
-    final gold        = AppTheme.gold(context);
-    final cardColor   = AppTheme.cardColor(context);
+    final sub = context.watch<SubscriptionProvider>();
+    final gold = AppTheme.gold(context);
+    final cardColor = AppTheme.cardColor(context);
     final borderColor = AppTheme.borderColor(context);
 
     // ── Pro subscriber ───────────────────────────────────────────────────────
     if (sub.isPro) {
-      final creditsLeft  = sub.subscriptionCredits;
+      final creditsLeft = sub.subscriptionCredits;
       final analysesLeft = sub.analysesAvailable;
-      final isLow        = analysesLeft <= 5;
+      final isLow = analysesLeft <= 5;
 
       return GestureDetector(
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const PaywallScreen()),
         ),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: Insets.md, vertical: 12),
+          padding:
+              const EdgeInsets.symmetric(horizontal: Insets.md, vertical: 12),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [gold.withOpacity(0.12), gold.withOpacity(0.04)],
@@ -281,24 +286,20 @@ class _HomeScreenState extends State<HomeScreen>
 
     // ── Free user ────────────────────────────────────────────────────────────
     final freeLeft = sub.freeRemaining;
-    final isLow    = freeLeft <= 1;
+    final isLow = freeLeft <= 1;
 
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const PaywallScreen()),
       ),
       child: Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: Insets.md, vertical: 12),
+        padding:
+            const EdgeInsets.symmetric(horizontal: Insets.md, vertical: 12),
         decoration: BoxDecoration(
-          color: isLow
-              ? AppTheme.red(context).withOpacity(0.06)
-              : cardColor,
+          color: isLow ? AppTheme.red(context).withOpacity(0.06) : cardColor,
           borderRadius: BorderRadius.circular(Radii.lg),
           border: Border.all(
-            color: isLow
-                ? AppTheme.red(context).withOpacity(0.3)
-                : borderColor,
+            color: isLow ? AppTheme.red(context).withOpacity(0.3) : borderColor,
           ),
         ),
         child: Row(
@@ -322,7 +323,9 @@ class _HomeScreenState extends State<HomeScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isLow ? 'Almost out of analyses!' : 'Free Analyses Available',
+                    isLow
+                        ? 'Almost out of analyses!'
+                        : 'Free Analyses Available',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -334,15 +337,13 @@ class _HomeScreenState extends State<HomeScreen>
                         ? '$freeLeft free ${freeLeft == 1 ? 'analysis' : 'analyses'} remaining'
                         : 'No analyses left — tap to subscribe',
                     style: TextStyle(
-                        fontSize: 11,
-                        color: AppTheme.textSecondary(context)),
+                        fontSize: 11, color: AppTheme.textSecondary(context)),
                   ),
                 ],
               ),
             ),
             Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: gold.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(Radii.full),
@@ -351,9 +352,7 @@ class _HomeScreenState extends State<HomeScreen>
               child: Text(
                 'Subscribe',
                 style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: gold),
+                    fontSize: 11, fontWeight: FontWeight.w700, color: gold),
               ),
             ),
           ],
@@ -375,20 +374,17 @@ class _HomeScreenState extends State<HomeScreen>
       flexibleSpace: Container(
         decoration: BoxDecoration(
           color: bgColor,
-          border:
-          Border(bottom: BorderSide(color: borderColor, width: 0.5)),
+          border: Border(bottom: BorderSide(color: borderColor, width: 0.5)),
         ),
       ),
       title: Row(
         children: [
           Builder(builder: (context) {
-            final isDark   = Theme.of(context).brightness == Brightness.dark;
-            final gold     = AppTheme.gold(context);
-            final goldSoft = isDark
-                ? AppColorsDark.goldSoft
-                : AppColorsLight.goldSoft;
-            final iconBg =
-            isDark ? AppColorsDark.bg : AppColorsLight.bg;
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final gold = AppTheme.gold(context);
+            final goldSoft =
+                isDark ? AppColorsDark.goldSoft : AppColorsLight.goldSoft;
+            final iconBg = isDark ? AppColorsDark.bg : AppColorsLight.bg;
             return Container(
               width: 34,
               height: 34,
@@ -416,9 +412,11 @@ class _HomeScreenState extends State<HomeScreen>
       actions: [
         IconButton(
           icon: Icon(Icons.settings_outlined, color: textSecondary),
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const SettingsScreen()),
-          ),
+          onPressed: () => AdsProvider.getProvider().loadAndShowInterstitialAd((){
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            );
+          }),
         ),
       ],
     );
@@ -427,10 +425,10 @@ class _HomeScreenState extends State<HomeScreen>
   // ── Welcome Card ──────────────────────────────────────────────────────────
 
   Widget _buildWelcomeCard(BuildContext context) {
-    final isDark     = Theme.of(context).brightness == Brightness.dark;
-    final gold       = AppTheme.gold(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gold = AppTheme.gold(context);
     final borderGlow =
-    isDark ? AppColorsDark.borderGlow : AppColorsLight.borderGlow;
+        isDark ? AppColorsDark.borderGlow : AppColorsLight.borderGlow;
 
     return Container(
       padding: const EdgeInsets.all(Insets.lg),
@@ -455,8 +453,8 @@ class _HomeScreenState extends State<HomeScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: Insets.sm, vertical: 4),
+            padding:
+                const EdgeInsets.symmetric(horizontal: Insets.sm, vertical: 4),
             decoration: BoxDecoration(
               color: gold.withOpacity(0.15),
               borderRadius: BorderRadius.circular(Radii.full),
@@ -500,17 +498,14 @@ class _HomeScreenState extends State<HomeScreen>
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text('·',
                   style: TextStyle(
-                      color: AppTheme.textSecondary(context),
-                      fontSize: 14)),
+                      color: AppTheme.textSecondary(context), fontSize: 14)),
             ),
-            _StatChip(
-                label: 'Levels', icon: Icons.horizontal_rule_rounded),
+            _StatChip(label: 'Levels', icon: Icons.horizontal_rule_rounded),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text('·',
                   style: TextStyle(
-                      color: AppTheme.textSecondary(context),
-                      fontSize: 14)),
+                      color: AppTheme.textSecondary(context), fontSize: 14)),
             ),
             _StatChip(label: 'Signals', icon: Icons.bolt_rounded),
           ]),
@@ -522,7 +517,7 @@ class _HomeScreenState extends State<HomeScreen>
   // ── Upload Section ────────────────────────────────────────────────────────
 
   Widget _buildUploadSection(BuildContext context) {
-    final gold      = AppTheme.gold(context);
+    final gold = AppTheme.gold(context);
     final cardColor = AppTheme.cardColor(context);
 
     return Column(
@@ -539,8 +534,7 @@ class _HomeScreenState extends State<HomeScreen>
             decoration: BoxDecoration(
               color: cardColor,
               borderRadius: BorderRadius.circular(Radii.xl),
-              border: Border.all(
-                  color: gold.withOpacity(0.3), width: 1.5),
+              border: Border.all(color: gold.withOpacity(0.3), width: 1.5),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -564,8 +558,7 @@ class _HomeScreenState extends State<HomeScreen>
                 const SizedBox(height: 4),
                 Text('PNG, JPG supported',
                     style: TextStyle(
-                        fontSize: 11,
-                        color: AppTheme.textMuted(context))),
+                        fontSize: 11, color: AppTheme.textMuted(context))),
               ],
             ),
           ),
@@ -601,10 +594,12 @@ class _HomeScreenState extends State<HomeScreen>
               icon: Icons.candlestick_chart_rounded,
               label: 'Live Crypto\nCharts',
               color: AppTheme.emerald(context),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                    builder: (_) => const LiveChartScreen()),
-              ),
+              onTap: () =>
+                  AdsProvider.getProvider().loadAndShowInterstitialAd(() {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const LiveChartScreen()),
+                );
+              }),
             ),
           ),
           const SizedBox(width: Insets.sm),
@@ -613,9 +608,12 @@ class _HomeScreenState extends State<HomeScreen>
               icon: Icons.notifications_active_outlined,
               label: 'Price\nAlerts',
               color: AppTheme.gold(context),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AlertsScreen()),
-              ),
+              onTap: () =>
+                  AdsProvider.getProvider().loadAndShowInterstitialAd(() {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AlertsScreen()),
+                );
+              }),
             ),
           ),
           const SizedBox(width: Insets.sm),
@@ -624,10 +622,12 @@ class _HomeScreenState extends State<HomeScreen>
               icon: Icons.history_rounded,
               label: 'Analysis\nHistory',
               color: AppTheme.blue(context),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                    builder: (_) => const HistoryScreen()),
-              ),
+              onTap: () =>
+                  AdsProvider.getProvider().loadAndShowInterstitialAd(() {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                );
+              }),
             ),
           ),
         ]),
@@ -641,6 +641,7 @@ class _HomeScreenState extends State<HomeScreen>
 class _StatChip extends StatelessWidget {
   final String label;
   final IconData icon;
+
   const _StatChip({required this.label, required this.icon});
 
   @override

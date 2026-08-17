@@ -1,10 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants/app_constants.dart';
+import '../main.dart';
 import '../models/chart_analysis.dart';
 import '../models/price_alert.dart';
 import '../services/alerts_service.dart';
@@ -18,6 +20,13 @@ import '../services/subscription_service.dart';
 
 class ThemeProvider extends ChangeNotifier {
   static const _kDarkModeKey = 'dark_mode';
+
+  static ThemeProvider getProvider() {
+    return Provider.of<ThemeProvider>(
+      navigatorKey.currentContext!,
+      listen: false,
+    );
+  }
 
   bool _isDark = true;
   bool get isDark => _isDark;

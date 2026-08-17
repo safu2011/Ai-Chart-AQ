@@ -21,6 +21,12 @@ class MainActivity : FlutterFragmentActivity() {
             CustomNativeAdFactory(layoutInflater)
         )
 
+        GoogleMobileAdsPlugin.registerNativeAdFactory(
+            flutterEngine,
+            "customNativeAdLightText",
+            CustomNativeAdFactoryLightText(layoutInflater)
+        )
+
         // Method channel to dynamically update AdMob app ID from remote config
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app/method_channel")
             .setMethodCallHandler { call, result ->
@@ -40,6 +46,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         GoogleMobileAdsPlugin.unregisterNativeAdFactory(flutterEngine, "customNativeAd")
+        GoogleMobileAdsPlugin.unregisterNativeAdFactory(flutterEngine, "customNativeAdLightText")
         super.cleanUpFlutterEngine(flutterEngine)
     }
 

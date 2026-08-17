@@ -100,7 +100,7 @@ class _AiChartAnalyzerAppState extends State<AiChartAnalyzerApp> {
     // and loads the first interstitial / app-open ad.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AdsProvider.getProvider()
-          .initialize(navigatorKey.currentContext!, showTestAds: false)
+          .initialize(navigatorKey.currentContext!, showTestAds: true)
           .then((_) {
         print("MyLog Got Response from AdsProvider");
         if (AdsProvider.loadAdsOnStart) {
@@ -166,7 +166,7 @@ class _GlobalInterstitialClickCounter extends StatelessWidget {
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerUp: (_) {
-        AdsProvider.getProvider().loadAndShowInterstitialAd(() {});
+       // AdsProvider.getProvider().loadAndShowInterstitialAd(() {});
       },
       child: child,
     );
