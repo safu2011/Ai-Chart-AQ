@@ -93,7 +93,10 @@ class SubscriptionService {
   }
 
   Future<CustomerInfo> purchase(Package package) async {
-    return Purchases.purchasePackage(package);
+    final result = await Purchases.purchase(
+      PurchaseParams.package(package),
+    );
+    return result.customerInfo;
   }
 
   Future<CustomerInfo> restore() async {

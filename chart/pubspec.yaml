@@ -40,7 +40,7 @@ dependencies:
 
   # ── Monetization ─────────────────────────────────────────────────────────────
   # IAP / Subscriptions
-  purchases_flutter: ^8.0.0          # RevenueCat SDK
+  purchases_flutter: ^9.11.1         # RevenueCat SDK
 
   # Ads — upgraded to ^7.0.0 for AdManagerAdRequest / custom native factory support
   google_mobile_ads: ^8.0.0
