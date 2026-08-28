@@ -49,20 +49,20 @@ const String _kLocalRealAdsJson = '''
 
 const String _kLocalAdsConfigJson = '''
 {
-  "userInteractionCounterLimit": 3,
+  "userInteractionCounterLimit": 2,
   "interstital_timer_in_seconds": 1,
   "ads_show_counter_limit": 1000,
   "ads_clicked_counter_limit": 10,
   "splash_screen_continue_ad_type": 1,
-  "splash_screen_bottom_ad": 1,
+  "splash_screen_bottom_ad": 0,
   "on_boarding_screen_bottom_ad": 5,
-  "home_screen_middle": 5,
-  "history_screen_top": 1,
-  "alerts_screen_top": 5,
+  "home_screen_middle": 0,
+  "history_screen_top": 0,
+  "alerts_screen_top": 0,
   "settings_screen_bottom": 0,
   "live_chart_screen_top": 5,
-  "analysis_result_screen_middle": 5,
-  "exit_screen_top": 1
+  "analysis_result_screen_middle": 0,
+  "exit_screen_top": 0
 }
 ''';
 
