@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -100,7 +101,9 @@ class _AiChartAnalyzerAppState extends State<AiChartAnalyzerApp> {
     // and loads the first interstitial / app-open ad.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AdsProvider.getProvider()
-          .initialize(navigatorKey.currentContext!, showTestAds: true)
+          // Test ads in debug/profile builds only; release builds always use
+          // the real AdMob ad unit IDs.
+          .initialize(navigatorKey.currentContext!, showTestAds: !kReleaseMode)
           .then((_) {
         print("MyLog Got Response from AdsProvider");
         if (AdsProvider.loadAdsOnStart) {

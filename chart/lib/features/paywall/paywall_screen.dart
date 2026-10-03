@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../widgets/shared_widgets.dart';
 import '../providers.dart';
 import '../../services/subscription_service.dart';
+import '../../services/remote_config_service.dart';
 import '../../providers/ads_provider.dart';
 import '../../main.dart';
 class PaywallScreen extends StatefulWidget {
@@ -25,6 +26,28 @@ class _PaywallScreenState extends State<PaywallScreen>
   // Which plan card is tapped/selected for purchase
   String? _selectedPlanId;
 
+  // Credits per cycle are GRANTED from Remote Config (see CreditsService), so
+  // the plan cards must display those same values. Falls back to the
+  // AppConstants defaults until/unless a Remote Config value is cached.
+  int _weeklyCredits  = AppConstants.weeklyCreditsPerCycle;
+  int _monthlyCredits = AppConstants.monthlyCreditsPerCycle;
+  int _yearlyCredits  = AppConstants.yearlyCreditsPerCycle;
+
+  Future<void> _loadRemoteCredits() async {
+    final rc = RemoteConfigService.instance;
+    final w = await rc.getWeeklyCredits(AppConstants.weeklyCreditsPerCycle);
+    final m = await rc.getMonthlyCredits(AppConstants.monthlyCreditsPerCycle);
+    final y = await rc.getYearlyCredits(AppConstants.yearlyCreditsPerCycle);
+    if (!mounted) return;
+    if (w != _weeklyCredits || m != _monthlyCredits || y != _yearlyCredits) {
+      setState(() {
+        _weeklyCredits = w;
+        _monthlyCredits = m;
+        _yearlyCredits = y;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -34,8 +57,11 @@ class _PaywallScreenState extends State<PaywallScreen>
     );
     _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
 
+    _loadRemoteCredits();
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await context.read<SubscriptionProvider>().loadOfferings();
+      _loadRemoteCredits();
       _animCtrl.forward();
     });
   }
@@ -146,8 +172,8 @@ class _PaywallScreenState extends State<PaywallScreen>
             planId: AppConstants.rcWeeklySubId,
             title: 'Weekly',
             subtitle: 'per week',
-            creditsPerCycle: AppConstants.weeklyCreditsPerCycle,
-            analysesPerCycle: (AppConstants.weeklyCreditsPerCycle /
+            creditsPerCycle: _weeklyCredits,
+            analysesPerCycle: (_weeklyCredits /
                 AppConstants.creditsPerAnalysis)
                 .floor(),
             cycleLabel: 'week',
@@ -167,8 +193,8 @@ class _PaywallScreenState extends State<PaywallScreen>
             planId: AppConstants.rcMonthlySubId,
             title: 'Monthly',
             subtitle: 'per month',
-            creditsPerCycle: AppConstants.monthlyCreditsPerCycle,
-            analysesPerCycle: (AppConstants.monthlyCreditsPerCycle /
+            creditsPerCycle: _monthlyCredits,
+            analysesPerCycle: (_monthlyCredits /
                 AppConstants.creditsPerAnalysis)
                 .floor(),
             cycleLabel: 'month',
@@ -189,8 +215,8 @@ class _PaywallScreenState extends State<PaywallScreen>
             planId: AppConstants.rcYearlySubId,
             title: 'Yearly',
             subtitle: 'per year',
-            creditsPerCycle: AppConstants.yearlyCreditsPerCycle,
-            analysesPerCycle: (AppConstants.yearlyCreditsPerCycle /
+            creditsPerCycle: _yearlyCredits,
+            analysesPerCycle: (_yearlyCredits /
                 AppConstants.creditsPerAnalysis)
                 .floor(),
             cycleLabel: 'year',

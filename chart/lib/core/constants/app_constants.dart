@@ -51,7 +51,7 @@ class AppConstants {
   // Cached in SharedPreferences by AdsProvider. Read via RemoteConfigService.
   static const int weeklyCreditsPerCycle  = 250;   // $5  / 0.02
   static const int monthlyCreditsPerCycle = 850;   // $17 / 0.02
-  static const int yearlyCreditsPerCycle  = 9500;  // $190 / 0.02
+  static const int yearlyCreditsPerCycle  = 10200; // offline fallback; Remote Config (yearly_credits_per_cycle) overrides
 
   // ── One-time credit packs (lifetime, never expire) ─────────────────────────
   // Price per credit for packs = pricePerCreditUsd + iapPriceMarkupUsd
