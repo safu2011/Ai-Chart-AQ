@@ -8,6 +8,7 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../widgets/credits_badge.dart';
 import '../../../widgets/shared_widgets.dart';
 import '../../alerts/screens/alerts_screen.dart';
 import '../../analysis/screens/image_preview_screen.dart';
@@ -221,8 +222,8 @@ class _HomeScreenState extends State<HomeScreen>
 
     // ── Pro subscriber ───────────────────────────────────────────────────────
     if (sub.isPro) {
-      final creditsLeft = sub.subscriptionCredits;
-      final analysesLeft = sub.analysesAvailable;
+      final creditsLeft = sub.totalCredits;
+      final analysesLeft = sub.totalAnalysesAvailable;
       final isLow = analysesLeft <= 5;
 
       return GestureDetector(
@@ -268,7 +269,9 @@ class _HomeScreenState extends State<HomeScreen>
                     Text(
                       isLow
                           ? '$analysesLeft ${analysesLeft == 1 ? 'analysis' : 'analyses'} left — tap to manage plan'
-                          : '~$analysesLeft analyses remaining this cycle',
+                          : (sub.iapCredits > 0
+                              ? '~$analysesLeft analyses remaining'
+                              : '~$analysesLeft analyses remaining this cycle'),
                       style: TextStyle(
                         fontSize: 11,
                         color: AppTheme.textSecondary(context),
@@ -285,7 +288,8 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     // ── Free user ────────────────────────────────────────────────────────────
-    final freeLeft = sub.freeRemaining;
+    final hasLifetime = sub.iapCredits > 0;
+    final freeLeft = hasLifetime ? sub.totalAnalysesAvailable : sub.freeRemaining;
     final isLow = freeLeft <= 1;
 
     return GestureDetector(
@@ -325,7 +329,9 @@ class _HomeScreenState extends State<HomeScreen>
                   Text(
                     isLow
                         ? 'Almost out of analyses!'
-                        : 'Free Analyses Available',
+                        : (hasLifetime
+                            ? 'Analyses Available'
+                            : 'Free Analyses Available'),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -334,7 +340,7 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                   Text(
                     freeLeft > 0
-                        ? '$freeLeft free ${freeLeft == 1 ? 'analysis' : 'analyses'} remaining'
+                        ? '$freeLeft ${hasLifetime ? '' : 'free '}${freeLeft == 1 ? 'analysis' : 'analyses'} remaining'
                         : 'No analyses left — tap to subscribe',
                     style: TextStyle(
                         fontSize: 11, color: AppTheme.textSecondary(context)),
@@ -397,19 +403,25 @@ class _HomeScreenState extends State<HomeScreen>
             );
           }),
           const SizedBox(width: 10),
-          Builder(
-            builder: (context) => Text(
-              'AI Chart Analyzer',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.textPrimary(context),
+          Flexible(
+            child: Builder(
+              builder: (context) => Text(
+                'AI Chart Analyzer',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textPrimary(context),
+                ),
               ),
             ),
           ),
         ],
       ),
       actions: [
+        const CreditsBadge(),
+        const SizedBox(width: 4),
         IconButton(
           icon: Icon(Icons.settings_outlined, color: textSecondary),
           onPressed: () => AdsProvider.getProvider().loadAndShowInterstitialAd((){

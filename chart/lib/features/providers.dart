@@ -345,12 +345,36 @@ class SubscriptionProvider extends ChangeNotifier {
   Offerings? _offerings;
   SubscriptionTier _activeTier = SubscriptionTier.none;
 
+  // Lifetime (one-time IAP) credits — never expire, spent before subscription
+  // credits, and unaffected by subscription renewal / lapse.
+  int _iapCredits = 0;
+  List<StoreProduct> _iapProducts = [];
+  bool _iapLoading = false;
+  bool _iapLoaded = false;
+  bool _iapPurchasing = false;
+
   bool get isPro => _isPro;
   int get subscriptionCredits => _subscriptionCredits;
   int get freeRemaining => _freeRemaining;
   bool get isLoading => _isLoading;
   Offerings? get offerings => _offerings;
   SubscriptionTier get activeTier => _activeTier;
+
+  int get iapCredits => _iapCredits;
+  List<StoreProduct> get iapProducts => _iapProducts;
+  bool get isIapLoading => _iapLoading;
+  bool get iapLoaded => _iapLoaded;
+  bool get isIapPurchasing => _iapPurchasing;
+
+  /// Combined balance shown in the UI badge: lifetime (IAP) credits plus the
+  /// subscription credits (Pro) or the remaining free analyses (non-Pro).
+  int get totalCredits =>
+      _iapCredits + (_isPro ? _subscriptionCredits : _freeRemaining);
+
+  /// Analyses available across ALL credit sources (IAP + subscription/free).
+  int get totalAnalysesAvailable =>
+      (_iapCredits / AppConstants.creditsPerAnalysis).floor() +
+      analysesAvailable;
 
   /// Total analyses remaining (credit-based for Pro, free count for non-Pro).
   int get analysesAvailable {
@@ -361,7 +385,7 @@ class SubscriptionProvider extends ChangeNotifier {
   }
 
   /// Credit count to display in UI (subscription credits for Pro users).
-  int get displayCredits => _isPro ? _subscriptionCredits : _freeRemaining;
+  int get displayCredits => totalCredits;
 
   void setIsPro(bool value) {
     _isPro = value;
@@ -394,6 +418,7 @@ class SubscriptionProvider extends ChangeNotifier {
 
     _subscriptionCredits = await CreditsService.instance.getSubscriptionCredits();
     _freeRemaining       = await CreditsService.instance.getFreeRemaining();
+    _iapCredits          = await CreditsService.instance.getIapCredits();
 
     _isLoading = false;
     notifyListeners();
@@ -416,8 +441,79 @@ class SubscriptionProvider extends ChangeNotifier {
     final result = await CreditsService.instance.consume(isPro: _isPro);
     _subscriptionCredits = await CreditsService.instance.getSubscriptionCredits();
     _freeRemaining       = await CreditsService.instance.getFreeRemaining();
+    _iapCredits          = await CreditsService.instance.getIapCredits();
     notifyListeners();
     return result;
+  }
+
+  // ── One-time credit packs (lifetime credits) ──────────────────────────────
+
+  /// Loads the store products for [AppConstants.iapPacks]. Uses its own
+  /// loading flag so it never affects subscription screens.
+  Future<void> loadIapProducts({bool force = false}) async {
+    if (_iapLoading) return;
+    // Only skip reloading when EVERY pack was found; a partial result (e.g.
+    // products still propagating on Google Play) is retried on next open.
+    if (_iapLoaded &&
+        _iapProducts.length >= AppConstants.iapPacks.length &&
+        !force) {
+      return;
+    }
+    _iapLoading = true;
+    notifyListeners();
+    _iapProducts = await SubscriptionService.instance.fetchIapProducts(
+      AppConstants.iapPacks.map((p) => p.productId).toList(),
+    );
+    print('MyLog IAP products fetched (${_iapProducts.length}/'
+        '${AppConstants.iapPacks.length}): '
+        '${_iapProducts.map((p) => '${p.identifier} @ ${p.priceString}').toList()}');
+    final missing = AppConstants.iapPacks
+        .where((pk) => iapProductFor(pk.productId) == null)
+        .map((pk) => pk.productId)
+        .toList();
+    if (missing.isNotEmpty) {
+      print('MyLog IAP products NOT returned by store: $missing');
+    }
+    _iapLoaded = true;
+    _iapLoading = false;
+    notifyListeners();
+  }
+
+  StoreProduct? iapProductFor(String productId) {
+    for (final p in _iapProducts) {
+      // Google's newer one-time products can be reported as
+      // "<productId>:<purchaseOptionId>", so accept both forms.
+      if (p.identifier == productId ||
+          p.identifier.startsWith('$productId:')) {
+        return p;
+      }
+    }
+    return null;
+  }
+
+  /// Buys [pack] and, only after the store confirms the payment, adds its
+  /// credits to the lifetime balance. Returns the credits actually added
+  /// (0 if this exact transaction had already been granted).
+  /// Throws on cancel/failure — callers map the error to a message.
+  Future<int> purchaseIapPack(IapPack pack) async {
+    final product = iapProductFor(pack.productId);
+    if (product == null) {
+      throw Exception('This pack is not available right now.');
+    }
+    _iapPurchasing = true;
+    notifyListeners();
+    try {
+      final result = await SubscriptionService.instance.purchaseIapProduct(product);
+      final granted = await CreditsService.instance.grantIapCredits(
+        pack.credits,
+        transactionId: result.storeTransaction.transactionIdentifier,
+      );
+      _iapCredits = await CreditsService.instance.getIapCredits();
+      return granted ? pack.credits : 0;
+    } finally {
+      _iapPurchasing = false;
+      notifyListeners();
+    }
   }
 
   /// Purchases a subscription package. Grants the full credit allotment

@@ -13,6 +13,11 @@ class AppConstants {
   static const String chabbi = "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";
   static const openAiBaseUrl = 'https://api.openai.com/v1';
   static const openAiModel = 'gpt-4o-mini';
+  // gpt-4o-mini pricing in USD per 1M tokens (update if OpenAI changes pricing
+  // or if you switch openAiModel).
+  static const double openAiInputPricePer1M       = 0.15;
+  static const double openAiCachedInputPricePer1M = 0.075;
+  static const double openAiOutputPricePer1M      = 0.60;
 
   // ── Binance ────────────────────────────────────────────────────────────────
   static const binanceBaseUrl = 'https://api.binance.com/api/v3';
@@ -47,6 +52,21 @@ class AppConstants {
   static const int weeklyCreditsPerCycle  = 250;   // $5  / 0.02
   static const int monthlyCreditsPerCycle = 850;   // $17 / 0.02
   static const int yearlyCreditsPerCycle  = 9500;  // $190 / 0.02
+
+  // ── One-time credit packs (lifetime, never expire) ─────────────────────────
+  // Price per credit for packs = pricePerCreditUsd + iapPriceMarkupUsd
+  // = 0.02 + 0.03 = $0.05  ->  $1 = 20, $3 = 60, $7 = 140, $10 = 200 credits.
+  // Create each productId below in Google Play Console as a CONSUMABLE
+  // in-app product (Monetize -> Products -> In-app products) priced at the
+  // matching USD amount, and add it in RevenueCat as a non-subscription product.
+  static const double iapPriceMarkupUsd    = 0.03;
+  static const double iapPricePerCreditUsd = pricePerCreditUsd + iapPriceMarkupUsd;
+  static const List<IapPack> iapPacks = [
+    IapPack('credits_1usd', 1),
+    IapPack('credits_3usd', 3),
+    IapPack('credits_7usd', 7),
+    IapPack('credits_10usd', 10),
+  ];
 
   // Free tier — ONE-TIME lifetime free analyses
   static const freeAnalysesTotal = 3;
@@ -88,6 +108,16 @@ class AppConstants {
 
   static const analysisDisclaimer =
       'By continuing, you acknowledge this app does not provide financial or investment advice.';
+}
+
+/// A one-time, lifetime credit pack sold as an in-app purchase.
+class IapPack {
+  final String productId;
+  final double usd;
+  const IapPack(this.productId, this.usd);
+
+  /// Credits granted = USD price / (pricePerCreditUsd + markup).
+  int get credits => (usd / AppConstants.iapPricePerCreditUsd).round();
 }
 
 class Insets {

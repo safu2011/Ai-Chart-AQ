@@ -130,6 +130,11 @@ If the image is not a financial chart, set sentiment to "Neutral", sentiment_sco
     print("Error = response.data = ${response.data}");
     if (response.statusCode == 200) {
       final data = response.data as Map<String, dynamic>;
+
+      // ── Token usage + cost of this API hit (logged before parsing so a
+      // billed request is recorded even if the JSON parse below fails). ──
+      _logUsageAndCost(data);
+
       String answer =
           (data['choices'] as List).first['message']['content'] as String;
 
@@ -153,6 +158,42 @@ If the image is not a financial chart, set sentiment to "Neutral", sentiment_sco
         message: 'OpenAI API error: ${response.statusCode}',
       );
     }
+  }
+
+  /// Prints token usage and the USD cost of one OpenAI call.
+  /// Cost = uncached input + cached input + output, each at its per-1M rate.
+  static void _logUsageAndCost(Map<String, dynamic> data) {
+    final usage = data['usage'];
+    if (usage is! Map) {
+      print('MyLog Token usage unavailable: no "usage" field in OpenAI response');
+      return;
+    }
+    final int promptTokens = (usage['prompt_tokens'] as num?)?.toInt() ?? 0;
+    final int completionTokens =
+        (usage['completion_tokens'] as num?)?.toInt() ?? 0;
+    final int totalTokens =
+        (usage['total_tokens'] as num?)?.toInt() ?? (promptTokens + completionTokens);
+    final details = usage['prompt_tokens_details'];
+    final int cachedTokens =
+        details is Map ? ((details['cached_tokens'] as num?)?.toInt() ?? 0) : 0;
+    final int uncachedPrompt = promptTokens - cachedTokens;
+
+    final double inputCost =
+        uncachedPrompt / 1e6 * AppConstants.openAiInputPricePer1M;
+    final double cachedCost =
+        cachedTokens / 1e6 * AppConstants.openAiCachedInputPricePer1M;
+    final double outputCost =
+        completionTokens / 1e6 * AppConstants.openAiOutputPricePer1M;
+    final double totalCost = inputCost + cachedCost + outputCost;
+
+    print('MyLog Chart analysis token usage [${AppConstants.openAiModel}] -> '
+        'input(prompt+image)=$promptTokens (cached=$cachedTokens), '
+        'output=$completionTokens, total=$totalTokens');
+    print('MyLog Chart analysis API hit cost -> '
+        'input=\$${inputCost.toStringAsFixed(6)} + '
+        'cached=\$${cachedCost.toStringAsFixed(6)} + '
+        'output=\$${outputCost.toStringAsFixed(6)} = '
+        'TOTAL \$${totalCost.toStringAsFixed(6)} USD');
   }
 
   /// Convert any caught error into a user-friendly message.

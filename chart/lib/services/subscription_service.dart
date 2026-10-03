@@ -99,6 +99,27 @@ class SubscriptionService {
     return result.customerInfo;
   }
 
+  // ── One-time (consumable) credit packs ────────────────────────────────────
+
+  /// Fetches the consumable credit-pack products from the store. Returns an
+  /// empty list if they are not configured / the network is unavailable.
+  Future<List<StoreProduct>> fetchIapProducts(List<String> productIds) async {
+    try {
+      return await Purchases.getProducts(
+        productIds,
+        productCategory: ProductCategory.nonSubscription,
+      );
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Purchases a consumable credit pack. RevenueCat consumes it automatically,
+  /// so the same pack can be bought again and again.
+  Future<PurchaseResult> purchaseIapProduct(StoreProduct product) {
+    return Purchases.purchase(PurchaseParams.storeProduct(product));
+  }
+
   Future<CustomerInfo> restore() async {
     return Purchases.restorePurchases();
   }

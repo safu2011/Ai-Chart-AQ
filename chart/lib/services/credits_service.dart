@@ -14,6 +14,43 @@ class CreditsService {
   static const _kSubTier         = 'sub_tier';           // last known tier name
   static const _kSubExpirationMs = 'sub_expiration_ms';  // epoch ms of RC entitlement expiration
   static const _kFreeUsed        = 'free_used_total';    // lifetime free counter
+  static const _kIapCredits      = 'iap_credits';        // lifetime (IAP) credits, never expire
+  static const _kIapTxnIds       = 'iap_granted_txn_ids'; // recent granted transaction ids (dedupe)
+
+  // ── Lifetime (IAP) Credit Management ──────────────────────────────────────
+
+  /// Adds [credits] to the lifetime IAP balance. Called ONLY right after a
+  /// purchase succeeds in this session (same trust model as
+  /// [handleFreshPurchase]). [transactionId] is used to make sure the same
+  /// transaction can never be granted twice. Returns false if it was a
+  /// duplicate and nothing was added.
+  ///
+  /// These credits are independent from subscription credits: they are NOT
+  /// touched by [handleSubscriptionChange] / [clearSubscriptionCredits], so
+  /// they survive subscription renewals, upgrades and lapses.
+  Future<bool> grantIapCredits(int credits, {String? transactionId}) async {
+    if (credits <= 0) return false;
+    final p = await SharedPreferences.getInstance();
+
+    final seen = p.getStringList(_kIapTxnIds) ?? <String>[];
+    if (transactionId != null && transactionId.isNotEmpty) {
+      if (seen.contains(transactionId)) return false;
+      seen.add(transactionId);
+      // Keep the list small — only recent ids are needed for dedupe.
+      final trimmed = seen.length > 50 ? seen.sublist(seen.length - 50) : seen;
+      await p.setStringList(_kIapTxnIds, trimmed);
+    }
+
+    final current = p.getInt(_kIapCredits) ?? 0;
+    await p.setInt(_kIapCredits, current + credits);
+    print('MyLog IAP credits granted: +$credits (balance ${current + credits})');
+    return true;
+  }
+
+  Future<int> getIapCredits() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getInt(_kIapCredits) ?? 0;
+  }
 
   // ── Subscription Credit Management ────────────────────────────────────────
 
@@ -154,6 +191,10 @@ class CreditsService {
   }
 
   Future<bool> canAnalyze({required bool isPro}) async {
+    // Lifetime (IAP) credits are always usable, with or without a subscription.
+    final iapCredits = await getIapCredits();
+    if (iapCredits >= AppConstants.creditsPerAnalysis) return true;
+
     if (!isPro) {
       final freeLeft = await getFreeRemaining();
       return freeLeft > 0;
@@ -166,6 +207,14 @@ class CreditsService {
 
   Future<CreditConsumeResult> consume({required bool isPro}) async {
     final p = await SharedPreferences.getInstance();
+
+    // Spend lifetime (IAP) credits FIRST, then fall through to the existing
+    // subscription / free-slot logic below.
+    final iapCredits = p.getInt(_kIapCredits) ?? 0;
+    if (iapCredits >= AppConstants.creditsPerAnalysis) {
+      await p.setInt(_kIapCredits, iapCredits - AppConstants.creditsPerAnalysis);
+      return CreditConsumeResult.iapCredit;
+    }
 
     if (!isPro) {
       final freeUsed = p.getInt(_kFreeUsed) ?? 0;
@@ -205,6 +254,7 @@ class CreditsService {
 }
 
 enum CreditConsumeResult {
+  iapCredit,          // Used a lifetime (IAP) credit — always spent first
   subscriptionCredit, // Used a subscription credit
   freeSlot,           // Used a free lifetime slot
   noCredits,          // No credits available — show paywall
