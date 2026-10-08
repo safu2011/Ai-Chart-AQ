@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 import '../core/constants/app_constants.dart';
+import 'analytics_service.dart';
 
 /// Subscription tier derived from active entitlement + product identifier.
 enum SubscriptionTier {
@@ -96,6 +97,12 @@ class SubscriptionService {
     final result = await Purchases.purchase(
       PurchaseParams.package(package),
     );
+    // Revenue tracking for Google Ads tROAS (never throws).
+    AnalyticsService.instance.logPurchase(
+      product: package.storeProduct,
+      itemCategory: 'subscription',
+      transactionId: result.storeTransaction.transactionIdentifier,
+    );
     return result.customerInfo;
   }
 
@@ -116,8 +123,16 @@ class SubscriptionService {
 
   /// Purchases a consumable credit pack. RevenueCat consumes it automatically,
   /// so the same pack can be bought again and again.
-  Future<PurchaseResult> purchaseIapProduct(StoreProduct product) {
-    return Purchases.purchase(PurchaseParams.storeProduct(product));
+  Future<PurchaseResult> purchaseIapProduct(StoreProduct product) async {
+    final result =
+        await Purchases.purchase(PurchaseParams.storeProduct(product));
+    // Revenue tracking for Google Ads tROAS (never throws).
+    AnalyticsService.instance.logPurchase(
+      product: product,
+      itemCategory: 'credit_pack',
+      transactionId: result.storeTransaction.transactionIdentifier,
+    );
+    return result;
   }
 
   Future<CustomerInfo> restore() async {
