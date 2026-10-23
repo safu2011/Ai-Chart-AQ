@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/navigation/ad_navigator_observer.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/history_repository.dart';
 import '../../../widgets/shared_widgets.dart';
@@ -320,7 +321,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icon(Icons.workspace_premium_rounded,
                     color: isDark ? AppColorsDark.bg : AppColorsLight.bg, size: 16),
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                  MaterialPageRoute(
+                    settings: const RouteSettings(
+                        name: AdNavigatorObserver.paywallRouteName),
+                    builder: (_) => const PaywallScreen(),
+                  ),
                 ),
                 height: 44,
               ),

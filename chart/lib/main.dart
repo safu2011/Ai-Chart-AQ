@@ -8,6 +8,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 
 import 'core/constants/app_constants.dart';
+import 'core/navigation/ad_navigator_observer.dart';
 import 'core/theme/app_theme.dart';
 import 'features/providers.dart';
 import 'features/splash/splash_screen.dart';
@@ -146,6 +147,9 @@ class _AiChartAnalyzerAppState extends State<AiChartAnalyzerApp> {
         darkTheme: AppTheme.dark,
         themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
         navigatorKey: navigatorKey,
+        // Runs the interstitial counter check on every screen change
+        // (forward and backward) across the whole app.
+        navigatorObservers: [AdNavigatorObserver()],
         // Wrap the whole app so every tap anywhere counts toward the
         // "interstitial every 3 clicks" rule (userInteractionCounterLimit).
         // loadAndShowInterstitialAd already handles the counting, the

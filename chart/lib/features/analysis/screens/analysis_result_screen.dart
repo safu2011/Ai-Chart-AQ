@@ -11,7 +11,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/chart_analysis.dart';
 import '../../../widgets/shared_widgets.dart';
-import '../../paywall/paywall_screen.dart';
+import '../../iap/credit_packs_screen.dart';
 import '../../providers.dart';
 import '../../../providers/ads_provider.dart';
 import '../../rating/rating_dialog.dart';
@@ -164,15 +164,18 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
             ),
             const SizedBox(height: Insets.lg),
             GradientButton(
-              label: 'View Plans',
+              label: 'Buy Credits',
               onTap: () async {
-                final purchased = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(builder: (_) => const CreditPacksScreen()),
                 );
                 if (!mounted) return;
-                if (purchased == true) {
+                final subProv = context.read<SubscriptionProvider>();
+                // The credits screen has no "purchased" result — check the
+                // balance instead.
+                if (await subProv.canAnalyze()) {
+                  if (!mounted) return;
                   // Credits are available now — retry automatically.
-                  final subProv = context.read<SubscriptionProvider>();
                   context.read<AnalysisProvider>().analyze(
                         widget.imageFile,
                         canAnalyzeFn: subProv.canAnalyze,
@@ -236,10 +239,13 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                         consumeFn: subProv.consumeCredit,
                       );
                 } else if (mounted) {
-                  final purchased = await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                  await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(builder: (_) => const CreditPacksScreen()),
                   );
-                  if (purchased != true && mounted) {
+                  if (!mounted) return;
+                  // Same as before: if they still have no credits, go home.
+                  // (If they bought some, they stay here and can tap again.)
+                  if (!await subProv.canAnalyze() && mounted) {
                     Navigator.of(context).pushReplacement(
                       MaterialPageRoute(builder: (_) => const HomeScreen()),
                     );

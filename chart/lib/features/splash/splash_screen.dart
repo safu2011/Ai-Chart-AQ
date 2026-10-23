@@ -10,7 +10,7 @@ import '../../features/providers.dart';
 import '../../providers/ads_provider.dart';
 import '../home/screens/home_screen.dart';
 import '../onboarding/user_guide_overlay.dart';
-import '../paywall/paywall_screen.dart';
+import '../iap/credit_packs_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -260,10 +260,10 @@ class _SplashScreenState extends State<SplashScreen>
         ),
       ).then((v) async {
         if (!subProv.isPro) {
-          print("Navigating to paywall");
+          print("Navigating to IAP credits screen");
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (_) => _PaywallThenHome(),
+              builder: (_) => _CreditPacksThenHome(),
             ),
           );
         } else {
@@ -280,13 +280,13 @@ class _SplashScreenState extends State<SplashScreen>
       if (!mounted) return;
 
       if (!subProv.isPro) {
-        // No credits left → push paywall, then home on back
+        // Not subscribed → open IAP credits screen, then home on back
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             transitionDuration: const Duration(milliseconds: 600),
             pageBuilder: (_, animation, __) => FadeTransition(
               opacity: animation,
-              child: const _PaywallThenHome(),
+              child: const _CreditPacksThenHome(),
             ),
           ),
         );
@@ -732,32 +732,32 @@ class _DashedCirclePainter extends CustomPainter {
   bool shouldRepaint(_DashedCirclePainter old) => false;
 }
 
-// ── PaywallThenHome ───────────────────────────────────────────────────────────
-/// Shown on 2nd+ launch when user has no credits.
-/// Displays the paywall first; pressing back reveals the HomeScreen underneath.
+// ── CreditPacksThenHome ───────────────────────────────────────────────────────
+/// Shown after splash when the user is not subscribed.
+/// Displays the IAP credits screen first; pressing back reveals the HomeScreen underneath.
 
-class _PaywallThenHome extends StatelessWidget {
-  const _PaywallThenHome();
+class _CreditPacksThenHome extends StatelessWidget {
+  const _CreditPacksThenHome();
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
         const HomeScreen(),
-        const _ImmediatePaywall(),
+        const _ImmediateCreditPacks(),
       ],
     );
   }
 }
 
-class _ImmediatePaywall extends StatefulWidget {
-  const _ImmediatePaywall();
+class _ImmediateCreditPacks extends StatefulWidget {
+  const _ImmediateCreditPacks();
 
   @override
-  State<_ImmediatePaywall> createState() => _ImmediatePaywallState();
+  State<_ImmediateCreditPacks> createState() => _ImmediateCreditPacksState();
 }
 
-class _ImmediatePaywallState extends State<_ImmediatePaywall> {
+class _ImmediateCreditPacksState extends State<_ImmediateCreditPacks> {
   bool _visible = true;
 
   @override
@@ -771,11 +771,11 @@ class _ImmediatePaywallState extends State<_ImmediatePaywall> {
     await Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (_, anim, __) =>
-            FadeTransition(opacity: anim, child: const PaywallScreen()),
+            FadeTransition(opacity: anim, child: const CreditPacksScreen()),
         transitionDuration: const Duration(milliseconds: 400),
       ),
     );
-    // After paywall is dismissed (back), hide this overlay — HomeScreen shows
+    // After the credits screen is dismissed (back), hide this overlay — HomeScreen shows
     if (mounted) setState(() => _visible = false);
   }
 

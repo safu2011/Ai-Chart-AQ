@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/navigation/ad_navigator_observer.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../widgets/credits_badge.dart';
 import '../../../widgets/shared_widgets.dart';
@@ -16,6 +17,7 @@ import '../../charts/screens/live_chart_screen.dart';
 import '../../exit/exit_screen.dart';
 import '../../history/screens/history_screen.dart';
 import '../../onboarding/user_guide_overlay.dart';
+import '../../iap/credit_packs_screen.dart';
 import '../../paywall/paywall_screen.dart';
 import '../../providers.dart';
 import '../../../providers/ads_provider.dart';
@@ -109,10 +111,11 @@ class _HomeScreenState extends State<HomeScreen>
     final subProv = context.read<SubscriptionProvider>();
     final canAnalyze = await subProv.canAnalyze();
     if (!canAnalyze && mounted) {
-      final purchased = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      // Out of credits → IAP credits screen. It has no "purchased" result, so
+      // re-check the balance when the user comes back.
+      await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const CreditPacksScreen()),
       );
-      if (purchased != true) return;
       final canNow = await subProv.canAnalyze();
       if (!canNow || !mounted) return;
     }
@@ -136,10 +139,11 @@ class _HomeScreenState extends State<HomeScreen>
     final canAnalyze = await subProv.canAnalyze();
 
     if (!canAnalyze && mounted) {
-      final purchased = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      // Out of credits → IAP credits screen. It has no "purchased" result, so
+      // re-check the balance when the user comes back.
+      await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const CreditPacksScreen()),
       );
-      if (purchased != true) return;
       final canNow = await subProv.canAnalyze();
       if (!canNow || !mounted) return;
     }
@@ -186,8 +190,6 @@ class _HomeScreenState extends State<HomeScreen>
                     delegate: SliverChildListDelegate([
                       _buildCreditsCard(context),
                       const SizedBox(height: Insets.md),
-                      _buildWelcomeCard(context),
-                      const SizedBox(height: Insets.lg),
                       if (!context.watch<SubscriptionProvider>().isPro &&
                           _adWidget != null)
                         _adWidget!,
@@ -200,6 +202,8 @@ class _HomeScreenState extends State<HomeScreen>
                       const SizedBox(height: Insets.lg),
                       const DisclaimerBanner(
                           text: AppConstants.startupDisclaimer),
+                      const SizedBox(height: Insets.lg),
+                      _buildWelcomeCard(context),
                       const SizedBox(height: Insets.xl),
                     ]),
                   ),
@@ -228,7 +232,11 @@ class _HomeScreenState extends State<HomeScreen>
 
       return GestureDetector(
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const PaywallScreen()),
+          MaterialPageRoute(
+            settings: const RouteSettings(
+                name: AdNavigatorObserver.paywallRouteName),
+            builder: (_) => const PaywallScreen(),
+          ),
         ),
         child: Container(
           padding:
@@ -294,7 +302,11 @@ class _HomeScreenState extends State<HomeScreen>
 
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+        MaterialPageRoute(
+          settings: const RouteSettings(
+              name: AdNavigatorObserver.paywallRouteName),
+          builder: (_) => const PaywallScreen(),
+        ),
       ),
       child: Container(
         padding:
@@ -424,11 +436,9 @@ class _HomeScreenState extends State<HomeScreen>
         const SizedBox(width: 4),
         IconButton(
           icon: Icon(Icons.settings_outlined, color: textSecondary),
-          onPressed: () => AdsProvider.getProvider().loadAndShowInterstitialAd((){
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-            );
-          }),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const SettingsScreen()),
+          ),
         ),
       ],
     );
@@ -606,12 +616,9 @@ class _HomeScreenState extends State<HomeScreen>
               icon: Icons.candlestick_chart_rounded,
               label: 'Live Crypto\nCharts',
               color: AppTheme.emerald(context),
-              onTap: () =>
-                  AdsProvider.getProvider().loadAndShowInterstitialAd(() {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const LiveChartScreen()),
-                );
-              }),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LiveChartScreen()),
+              ),
             ),
           ),
           const SizedBox(width: Insets.sm),
@@ -620,12 +627,9 @@ class _HomeScreenState extends State<HomeScreen>
               icon: Icons.notifications_active_outlined,
               label: 'Price\nAlerts',
               color: AppTheme.gold(context),
-              onTap: () =>
-                  AdsProvider.getProvider().loadAndShowInterstitialAd(() {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AlertsScreen()),
-                );
-              }),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AlertsScreen()),
+              ),
             ),
           ),
           const SizedBox(width: Insets.sm),
@@ -634,12 +638,9 @@ class _HomeScreenState extends State<HomeScreen>
               icon: Icons.history_rounded,
               label: 'Analysis\nHistory',
               color: AppTheme.blue(context),
-              onTap: () =>
-                  AdsProvider.getProvider().loadAndShowInterstitialAd(() {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const HistoryScreen()),
-                );
-              }),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const HistoryScreen()),
+              ),
             ),
           ),
         ]),
